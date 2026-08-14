@@ -18,8 +18,7 @@ import {
   Dog,
   Cat,
   Bird,
-  Fish,
-  Store
+  Fish
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -27,6 +26,7 @@ interface HeaderProps {
   selectedCategory?: number | null;
   onSelectCategory?: (categoryId: number | null) => void;
   onSearchSubmit?: (searchTerm: string) => void;
+  settings?: StoreSettings | null;
 }
 
 export default function Header({
@@ -34,6 +34,7 @@ export default function Header({
   selectedCategory = null,
   onSelectCategory,
   onSearchSubmit,
+  settings = null,
 }: HeaderProps) {
   const { totalItems, totalPrice, openDrawer, isHydrated } = useCart();
   const [searchQuery, setSearchQuery] = useState('');
@@ -41,19 +42,39 @@ export default function Header({
   const [isSearching, setIsSearching] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
+  const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(settings || null);
+  const [mounted, setMounted] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
-  // Fetch Store Settings
+  // Sync settings when prop updates or load from cache / API
   useEffect(() => {
+    setMounted(true);
+    if (settings) {
+      setStoreSettings(settings);
+      try {
+        localStorage.setItem('petshop_store_settings', JSON.stringify(settings));
+      } catch (e) {}
+      return;
+    }
+
+    try {
+      const cached = localStorage.getItem('petshop_store_settings');
+      if (cached) {
+        setStoreSettings(JSON.parse(cached));
+      }
+    } catch (e) {}
+
     apiClient.get('/settings')
       .then((res) => {
         if (res.data?.data) {
           setStoreSettings(res.data.data);
+          try {
+            localStorage.setItem('petshop_store_settings', JSON.stringify(res.data.data));
+          } catch (e) {}
         }
       })
       .catch((err) => console.log('Settings fetch fallback:', err));
-  }, []);
+  }, [settings]);
 
   // Debounced live search
   useEffect(() => {
@@ -118,8 +139,8 @@ export default function Header({
   };
 
   const logoUrl = getMediaUrl(storeSettings?.logo_url);
-  const storeName = storeSettings?.store_name || 'Animal Market Only';
-  const storePhone = storeSettings?.phone_number || '+212 6 00 00 00 00';
+  const storeName = storeSettings?.store_name || '';
+  const storePhone = storeSettings?.phone_number || '';
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.03)]">
@@ -136,15 +157,22 @@ export default function Header({
           </div>
 
           <div className="flex items-center gap-4 text-[11px]">
-            <a
-              href={`https://wa.me/${storePhone.replace(/[^0-9]/g, '')}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 hover:text-white transition-colors"
-            >
-              <Phone className="w-3 h-3 text-emerald-400" />
-              <span>WhatsApp : <strong>{storePhone}</strong></span>
-            </a>
+            {mounted && storePhone ? (
+              <a
+                href={`https://wa.me/${storePhone.replace(/[^0-9]/g, '')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 hover:text-white transition-colors"
+              >
+                <Phone className="w-3 h-3 text-emerald-400" />
+                <span>WhatsApp : <strong>{storePhone}</strong></span>
+              </a>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-emerald-300/80">
+                <Phone className="w-3 h-3 text-emerald-400" />
+                <span>WhatsApp Express</span>
+              </span>
+            )}
             <span className="hidden md:inline-flex items-center gap-1 text-emerald-300/80">
               <Clock className="w-3 h-3" />
               <span>7j/7 : 09h00 - 21h00</span>
@@ -168,30 +196,16 @@ export default function Header({
               <Menu className="w-6 h-6" />
             </button>
 
-            <Link href="/" className="flex items-center gap-3 group">
-              {logoUrl ? (
+            <Link href="/" className="flex items-center group py-1 min-h-[48px]">
+              {mounted && logoUrl ? (
                 <img
                   src={logoUrl}
-                  alt={storeName}
-                  className="h-11 w-auto object-contain"
-                  onError={(e) => {
-                    (e.target as HTMLElement).style.display = 'none';
-                  }}
+                  alt={storeName || 'Logo'}
+                  className="h-12 sm:h-14 md:h-16 w-auto max-h-16 object-contain transition-transform group-hover:scale-102"
                 />
-              ) : null}
-              <div className="flex flex-col">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-800 text-white flex items-center justify-center shadow-sm">
-                    <Store className="w-4 h-4" />
-                  </div>
-                  <span className="text-lg sm:text-xl font-black tracking-tight text-slate-900 group-hover:text-emerald-800 transition-colors uppercase">
-                    {storeName}
-                  </span>
-                </div>
-                <span className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-700 pl-9">
-                  Petshop & Vente en Ligne
-                </span>
-              </div>
+              ) : (
+                <div className="h-10 sm:h-12 w-28 sm:w-36 bg-slate-100/80 rounded-xl animate-pulse" />
+              )}
             </Link>
           </div>
 
@@ -368,14 +382,17 @@ export default function Header({
           <div className="fixed inset-y-0 left-0 max-w-xs w-full bg-white shadow-2xl z-10 flex flex-col justify-between animate-slide-in-right">
             <div>
               <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-800 text-white flex items-center justify-center">
-                    <Store className="w-4 h-4" />
-                  </div>
-                  <span className="font-black text-slate-900 text-sm uppercase">
-                    {storeName}
-                  </span>
-                </div>
+                <Link href="/" onClick={() => setMobileMenuOpen(false)} className="flex items-center">
+                  {mounted && logoUrl ? (
+                    <img
+                      src={logoUrl}
+                      alt={storeName || 'Logo'}
+                      className="h-10 sm:h-12 w-auto max-h-12 object-contain"
+                    />
+                  ) : (
+                    <div className="h-8 w-24 bg-slate-100 rounded-lg animate-pulse" />
+                  )}
+                </Link>
                 <button
                   type="button"
                   onClick={() => setMobileMenuOpen(false)}

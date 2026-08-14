@@ -126,7 +126,7 @@ export default function ProductModal({ product, isOpen, onClose }: ProductModalP
                 ) : (
                   <div className="flex flex-col items-center justify-center text-slate-300 gap-1">
                     <Package className="w-10 h-10" />
-                    <span className="text-[10px] font-bold">Animal Market</span>
+                    <span className="text-[10px] font-bold">Petshop</span>
                   </div>
                 )}
 

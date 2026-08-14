@@ -19,7 +19,7 @@ const DEFAULT_FAQS: Faq[] = [
     id: 2,
     question: 'Comment se passe le paiement à la livraison (COD) ?',
     answer:
-      'Le paiement s’effectue en espèces directement auprès du livreur au moment de la réception de votre colis. Aucune carte bancaire n’est exigée lors de votre commande en ligne.',
+      'Le paiement s\'effectue en espèces directement auprès du livreur au moment de la réception de votre colis. Aucune carte bancaire n\'est exigée lors de votre commande en ligne.',
   },
   {
     id: 3,
@@ -31,20 +31,26 @@ const DEFAULT_FAQS: Faq[] = [
     id: 4,
     question: 'Puis-je commander ou demander un conseil personnalisé par WhatsApp ?',
     answer:
-      'Absolument ! Notre équipe de passionnés est disponible 7j/7 sur WhatsApp pour vous conseiller sur la meilleure alimentation ou accessoire adapté à la race et à l’âge de votre animal.',
+      'Absolument ! Notre équipe de passionnés est disponible 7j/7 sur WhatsApp pour vous conseiller sur la meilleure alimentation ou accessoire adapté à la race et à l\'âge de votre animal.',
   },
 ];
 
 export default function FaqSection({ faqs = [] }: FaqSectionProps) {
-  const displayFaqs = faqs.length > 0 ? faqs : DEFAULT_FAQS;
-  const [openId, setOpenId] = useState<number | null>(1);
+  // If dynamic database FAQs are provided, filter active ones; otherwise fallback to default
+  const activeFaqs = faqs.filter((f) => f.is_active !== false);
+  const displayFaqs = activeFaqs.length > 0 ? activeFaqs : (faqs.length === 0 ? DEFAULT_FAQS : []);
+  const [openId, setOpenId] = useState<number | null>(displayFaqs[0]?.id || null);
 
   const toggleFaq = (id: number) => {
     setOpenId(openId === id ? null : id);
   };
 
+  if (displayFaqs.length === 0) {
+    return null;
+  }
+
   return (
-    <section className="py-12 border-t border-slate-200/60">
+    <section className="py-12 border-t border-slate-200/60" id="faqs">
       <div className="max-w-4xl mx-auto px-4">
         
         {/* Header */}

@@ -149,6 +149,7 @@ export default function HomePage() {
         selectedCategory={selectedCategory}
         onSelectCategory={handleCategorySelect}
         onSearchSubmit={handleSearchSubmit}
+        settings={settings}
       />
 
       {/* Main Content */}
@@ -291,7 +292,7 @@ export default function HomePage() {
           <section className="my-14 bg-gradient-to-br from-emerald-900 to-emerald-950 rounded-3xl p-8 sm:p-12 text-white relative overflow-hidden shadow-xl shadow-emerald-950/15">
             <div className="relative z-10 max-w-3xl space-y-4">
               <span className="px-3 py-1 bg-emerald-800 text-amber-300 text-xs font-black rounded-full border border-emerald-700">
-                Pourquoi choisir Animal Market Only ?
+                Pourquoi choisir notre boutique ?
               </span>
               <h2 className="text-2xl sm:text-3xl font-black leading-tight">
                 La référence de l&apos;alimentation et du bien-être animal à Marrakech
@@ -327,7 +328,7 @@ export default function HomePage() {
 
       {/* Floating WhatsApp CTA Button */}
       <a
-        href={`https://wa.me/${(settings?.phone_number || '+212600000000').replace(/[^0-9]/g, '')}?text=Bonjour%20Animal%20Market%20Only,%20je%20souhaite%20commander%20pour%20mon%20animal`}
+        href={`https://wa.me/${(settings?.phone_number || '+212600000000').replace(/[^0-9]/g, '')}?text=Bonjour,%20je%20souhaite%20commander%20pour%20mon%20animal`}
         target="_blank"
         rel="noopener noreferrer"
         className="fixed bottom-6 right-6 z-30 flex items-center gap-2 bg-[#25D366] hover:bg-[#20bd5a] text-white px-4 py-3 rounded-full shadow-xl shadow-emerald-950/20 active:scale-95 transition-all duration-200 cursor-pointer"

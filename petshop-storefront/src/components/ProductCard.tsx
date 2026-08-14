@@ -79,7 +79,7 @@ export default function ProductCard({ product, onQuickView }: ProductCardProps) 
           className={`fallback-placeholder w-24 h-24 rounded-2xl bg-emerald-50 text-emerald-700 flex flex-col items-center justify-center gap-1.5 ${imageUrl ? 'hidden' : 'flex'}`}
         >
           <Package className="w-10 h-10 opacity-70" />
-          <span className="text-[10px] font-bold uppercase tracking-wider">Animal Market</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider">Petshop</span>
         </div>
 
         {/* Brand overlay if available */}

@@ -63,6 +63,8 @@ export interface Faq {
   question: string;
   answer: string;
   category?: string | null;
+  is_active?: boolean;
+  order?: number;
 }
 
 export interface StoreSettings {

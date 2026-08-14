@@ -12,7 +12,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'Animal Market Only | Alimentation & Accessoires Animaux Marrakech Maroc',
+  title: 'Petshop | Alimentation & Accessoires Animaux Marrakech Maroc',
   description:
     'Boutique en ligne & animalerie à Marrakech. Vente de croquettes au kilo et sacs, litières et accessoires pour chiens, chats, oiseaux. Livraison express 24h & Paiement à la livraison (COD).',
   keywords: [

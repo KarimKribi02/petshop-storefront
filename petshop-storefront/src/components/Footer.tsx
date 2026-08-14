@@ -1,8 +1,9 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { StoreSettings } from '@/types';
+import { getMediaUrl } from '@/lib/axios';
 import { 
   Store, 
   Phone, 
@@ -19,12 +20,31 @@ interface FooterProps {
   settings?: StoreSettings | null;
 }
 
-export default function Footer({ settings }: FooterProps) {
-  const storeName = settings?.store_name || 'Animal Market Only';
-  const phone = settings?.phone_number || '+212 6 00 00 00 00';
-  const email = settings?.support_email || 'contact@animalmarket.ma';
-  const address = settings?.address || 'Marrakech, Maroc';
+export default function Footer({ settings = null }: FooterProps) {
+  const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(settings || null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    if (settings) {
+      setStoreSettings(settings);
+      return;
+    }
+    try {
+      const cached = localStorage.getItem('petshop_store_settings');
+      if (cached) {
+        setStoreSettings(JSON.parse(cached));
+      }
+    } catch (e) {}
+  }, [settings]);
+
+  const storeName = mounted ? (storeSettings?.store_name || 'Petshop') : (settings?.store_name || 'Petshop');
+  const phone = mounted ? (storeSettings?.phone_number || '+212 6 00 00 00 00') : (settings?.phone_number || '+212 6 00 00 00 00');
+  const email = mounted ? (storeSettings?.support_email || 'contact@petshop.ma') : (settings?.support_email || 'contact@petshop.ma');
+  const address = mounted ? (storeSettings?.address || 'Marrakech, Maroc') : (settings?.address || 'Marrakech, Maroc');
+  const logoUrl = getMediaUrl(storeSettings?.logo_url || settings?.logo_url);
   const description =
+    (mounted ? storeSettings?.store_description : null) ||
     settings?.store_description ||
     'Votre animalerie & boutique en ligne spécialisée en alimentation, soins et accessoires pour animaux à Marrakech et au Maroc.';
 
@@ -86,7 +106,7 @@ export default function Footer({ settings }: FooterProps) {
               <div className="w-9 h-9 rounded-2xl bg-emerald-800 text-white flex items-center justify-center shadow-xs">
                 <Store className="w-4 h-4" />
               </div>
-              <span className="text-lg font-black text-white tracking-tight uppercase">
+              <span className="text-lg font-black text-white tracking-tight uppercase" suppressHydrationWarning>
                 {storeName}
               </span>
             </div>
@@ -180,7 +200,7 @@ export default function Footer({ settings }: FooterProps) {
 
         {/* Bottom Bar */}
         <div className="pt-8 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-          <p>© {new Date().getFullYear()} {storeName}. Tous droits réservés.</p>
+          <p suppressHydrationWarning>© {new Date().getFullYear()} {storeName}. Tous droits réservés.</p>
           <div className="flex items-center gap-1">
             <span>Fait avec passion pour les animaux au Maroc</span>
             <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />
