@@ -1,18 +1,18 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useCart } from '@/context/CartContext';
 import apiClient from '@/lib/axios';
 import { Store } from '@/types';
-import { 
-  X, 
-  CheckCircle2, 
-  Truck, 
-  Phone, 
-  User, 
-  MapPin, 
-  FileText, 
-  ShieldCheck, 
+import {
+  X,
+  CheckCircle2,
+  Truck,
+  Phone,
+  User,
+  MapPin,
+  FileText,
+  ShieldCheck,
   ArrowRight,
   Loader2,
   Sparkles,
@@ -36,17 +36,19 @@ const POPULAR_CITIES = [
 const DEFAULT_STORES: Store[] = [
   {
     id: 1,
-    name: 'Store A - Gueliz',
-    code: 'STORE_A',
-    address: 'Av. Mohammed V, Gueliz, Marrakech',
-    phone: '+212 5 24 00 11 22',
+    name: 'sidi yousef ben ali',
+    code: 'SIDI_YOUSEF_BEN_ALI',
+    address: 'Douwar Jdid, Marrakech',
+    phone: '0600000000',
+    is_active: true,
   },
   {
     id: 2,
-    name: 'Store B - Agdal',
-    code: 'STORE_B',
-    address: 'Avenue de France, Agdal, Rabat',
-    phone: '+212 5 37 00 11 22',
+    name: 'daoudiyat',
+    code: 'DAOUDIYAT',
+    address: 'Douwar Jdid, Marrakech',
+    phone: '0600000000',
+    is_active: true,
   },
 ];
 
@@ -58,6 +60,8 @@ export default function CheckoutModal() {
     clearCart,
     isCheckoutOpen,
     closeCheckout,
+    currentStore,
+    updateCartStore,
   } = useCart();
 
   const [stores, setStores] = useState<Store[]>(DEFAULT_STORES);
@@ -76,6 +80,18 @@ export default function CheckoutModal() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [confirmedOrder, setConfirmedOrder] = useState<any | null>(null);
 
+  // Lock body scroll when checkout popup is open
+  useEffect(() => {
+    if (isCheckoutOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isCheckoutOpen]);
+
   // Fetch active stores from API
   useEffect(() => {
     let isMounted = true;
@@ -84,10 +100,6 @@ export default function CheckoutModal() {
       .then((res) => {
         if (isMounted && res.data?.data && Array.isArray(res.data.data) && res.data.data.length > 0) {
           setStores(res.data.data);
-          setSelectedStoreId((prev) => {
-            const exists = res.data.data.some((s: Store) => s.id === prev);
-            return exists ? prev : res.data.data[0].id;
-          });
         }
       })
       .catch((err) => {
@@ -99,17 +111,62 @@ export default function CheckoutModal() {
     };
   }, []);
 
-  // Sync selected store from items added with a preferred store
-  useEffect(() => {
-    const itemStoreId = items.find((i) => i.product.selected_store_id)?.product.selected_store_id;
-    if (itemStoreId) {
-      setSelectedStoreId(itemStoreId);
+  // Filter to show ONLY the store that was selected when adding to cart
+  const displayedStores = useMemo(() => {
+    const cartStoreId =
+      currentStore?.store_id ||
+      items.find((i) => i.store_id)?.store_id ||
+      items.find((i) => i.product?.selected_store_id)?.product?.selected_store_id ||
+      items[0]?.store_id ||
+      items[0]?.product?.selected_store_id;
+
+    if (cartStoreId) {
+      const matched = stores.filter((s) => s.id === cartStoreId);
+      if (matched.length > 0) {
+        return matched;
+      }
     }
-  }, [items]);
+    return stores;
+  }, [stores, currentStore, items]);
+
+  // Sync initial selected store when opening modal
+  useEffect(() => {
+    if (isCheckoutOpen) {
+      if (displayedStores.length > 0) {
+        setSelectedStoreId(displayedStores[0].id);
+      }
+      setErrorMessage(null);
+    }
+  }, [isCheckoutOpen, displayedStores]);
+
+  const handleSelectStore = (store: Store) => {
+    setSelectedStoreId(store.id);
+    if (updateCartStore) {
+      updateCartStore(store.id, store.name);
+    }
+    setErrorMessage(null);
+  };
+
+  const getStoreStockStatus = (storeId: number) => {
+    if (!items || items.length === 0) return { available: true, text: '' };
+    for (const item of items) {
+      const stocks = item.product?.stores_stock;
+      if (stocks && stocks.length > 0) {
+        const matching = stocks.find((s) => s.store_id === storeId);
+        if (!matching || matching.quantity < item.quantity) {
+          return {
+            available: false,
+            text: matching && matching.quantity > 0 ? `Stock limité (${matching.quantity} dispo)` : 'Rupture de stock',
+          };
+        }
+      }
+    }
+    return { available: true, text: 'Stock disponible' };
+  };
 
   if (!isCheckoutOpen) return null;
 
-  const selectedStore = stores.find((s) => s.id === selectedStoreId) || stores[0];
+  const selectedStore = displayedStores.find((s) => s.id === selectedStoreId) || displayedStores[0] || stores[0];
   const effectiveShippingFee = deliveryType === 'PICKUP_STORE' ? 0 : shippingFee;
   const currentTotal = totalPrice + effectiveShippingFee;
 
@@ -159,8 +216,8 @@ export default function CheckoutModal() {
         customer_name: formData.fullName.trim(),
         phone: cleanPhone,
         city: deliveryType === 'PICKUP_STORE' ? (formData.city || selectedStore?.name || 'Marrakech') : formData.city,
-        address: deliveryType === 'PICKUP_STORE' 
-          ? `Retrait Magasin: ${selectedStore?.name || 'Point de vente'} (${selectedStore?.address || ''})` 
+        address: deliveryType === 'PICKUP_STORE'
+          ? `Retrait Magasin: ${selectedStore?.name || 'Point de vente'} (${selectedStore?.address || ''})`
           : formData.address.trim(),
         store_id: selectedStoreId,
         delivery_type: deliveryType,
@@ -178,6 +235,79 @@ export default function CheckoutModal() {
 
       if (res.data?.status === 'success') {
         const createdOrder = res.data.data;
+        const generatedRef = formatOrderNumber(createdOrder);
+        const now = new Date();
+        const formattedDate = now.toLocaleDateString('fr-FR', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+        }) + ' à ' + now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
+        const savedOrderData = {
+          id: generatedRef,
+          numericId: createdOrder.id,
+          orderDate: formattedDate,
+          customerName: formData.fullName.trim(),
+          customerPhone: cleanPhone,
+          statusText: 'Commande confirmée',
+          statusType: 'processing',
+          etaMessage: deliveryType === 'PICKUP_STORE'
+            ? `Votre commande est en cours de préparation pour le retrait au magasin ${selectedStore?.name || 'sélectionné'}.`
+            : `Votre commande a été transmise à notre équipe. Livraison prévue sous 24h à 48h.`,
+          timeline: [
+            {
+              title: 'Commande confirmée',
+              date: formattedDate.split(' à ')[0],
+              time: formattedDate.split(' à ')[1] || '',
+              status: 'completed',
+              icon: 'check',
+            },
+            {
+              title: 'Préparation en cours',
+              date: 'En cours',
+              time: '',
+              status: 'current',
+              icon: 'box',
+            },
+            {
+              title: deliveryType === 'PICKUP_STORE' ? 'Prête au retrait' : 'En cours de livraison',
+              date: 'En attente',
+              time: '',
+              status: 'upcoming',
+              icon: deliveryType === 'PICKUP_STORE' ? 'pin' : 'truck',
+            },
+            {
+              title: deliveryType === 'PICKUP_STORE' ? 'Retirée' : 'Livrée',
+              date: 'En attente',
+              time: '',
+              status: 'upcoming',
+              icon: 'delivered',
+            },
+          ],
+          products: items.map((item) => ({
+            title: item.product.title || (item.product as any).name || 'Produit Animal Market Only',
+            variant: `${item.product.category?.name || 'Nutrition'} · ${item.product.unit_type === 'kg' ? item.quantity + 'kg' : 'Qté: ' + item.quantity}`,
+            quantity: item.quantity,
+            price: (parseFloat(String(item.product.price_sell)) || 0) * item.quantity,
+            image: item.product.image || item.product.image_url || 'https://images.unsplash.com/photo-1589924691995-400dc9ecc119?auto=format&fit=crop&w=300&q=80',
+          })),
+          shippingMethod: deliveryType === 'PICKUP_STORE' ? `Retrait Click & Collect (${selectedStore?.name})` : 'Livraison Express à Domicile',
+          shippingAddress: deliveryType === 'PICKUP_STORE'
+            ? `${selectedStore?.name} (${selectedStore?.address || 'Point de vente'})`
+            : `${formData.address.trim()}, ${formData.city}`,
+          paymentMethod: 'Paiement à la livraison (COD)',
+          total: currentTotal,
+        };
+
+        try {
+          const existingOrders = JSON.parse(localStorage.getItem('animalmarket_placed_orders') || localStorage.getItem('pawfuel_placed_orders') || '[]');
+          const updatedOrders = [savedOrderData, ...existingOrders.filter((o: any) => o.id !== generatedRef && o.numericId !== createdOrder.id)];
+          localStorage.setItem('animalmarket_placed_orders', JSON.stringify(updatedOrders));
+          localStorage.setItem('pawfuel_placed_orders', JSON.stringify(updatedOrders));
+        } catch (e) {
+          console.warn('Failed to save order to localStorage:', e);
+        }
+
         setConfirmedOrder(createdOrder);
         clearCart();
         triggerConfetti();
@@ -191,7 +321,7 @@ export default function CheckoutModal() {
       setErrorMessage(
         err.response?.data?.message ||
         err.message ||
-          'Une erreur est survenue lors de la validation de votre commande. Veuillez réessayer ou nous contacter sur WhatsApp.'
+        'Une erreur est survenue lors de la validation de votre commande. Veuillez réessayer ou nous contacter sur WhatsApp.'
       );
     } finally {
       setLoading(false);
@@ -213,34 +343,46 @@ export default function CheckoutModal() {
     closeCheckout();
   };
 
-  const orderId = confirmedOrder?.id || confirmedOrder?.order_id || confirmedOrder?.order?.id;
+  const formatOrderNumber = (order: any): string => {
+    if (!order) return 'OR1872981';
+    if (order.order_number && typeof order.order_number === 'string' && order.order_number.length > 3) {
+      return order.order_number;
+    }
+    const idNum = Number(order.id || order.order_id || 1);
+    if (!isNaN(idNum)) {
+      return `OR${1872980 + idNum}`;
+    }
+    return String(order.id || 'OR1872981');
+  };
+
+  const orderRef = formatOrderNumber(confirmedOrder);
   const backendTotal = confirmedOrder?.total_amount
     ? parseFloat(String(confirmedOrder.total_amount)).toFixed(2)
     : currentTotal.toFixed(2);
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div className="fixed inset-0 z-[9999] overflow-y-auto">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity animate-fade-in"
+        className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm transition-opacity animate-fade-in"
         onClick={handleClose}
       />
 
-      <div className="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
-        <div className="relative transform overflow-hidden rounded-3xl bg-white text-left shadow-2xl transition-all sm:my-8 w-full max-w-xl border border-slate-100 animate-fade-in">
-          
+      <div className="flex min-h-full items-center justify-center p-3 sm:p-4 text-center">
+        <div className="relative transform rounded-3xl bg-white text-left shadow-2xl transition-all my-6 w-full max-w-xl border border-slate-200/80 animate-fade-in max-h-[92vh] flex flex-col overflow-hidden">
+
           {/* Close button */}
           <button
             type="button"
             onClick={handleClose}
-            className="absolute top-4 right-4 p-2 rounded-2xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors z-10"
+            className="absolute top-4 right-4 p-2 rounded-2xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors z-20"
           >
             <X className="w-5 h-5" />
           </button>
 
           {confirmedOrder ? (
             /* Order Success State */
-            <div className="p-8 sm:p-10 text-center">
+            <div className="p-8 sm:p-10 text-center overflow-y-auto flex-1">
               <div className="w-20 h-20 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center mx-auto mb-5 shadow-inner">
                 <CheckCircle2 className="w-12 h-12 text-emerald-700" />
               </div>
@@ -253,12 +395,16 @@ export default function CheckoutModal() {
                 Merci {formData.fullName || confirmedOrder.customer_name || 'cher client'} !
               </h3>
 
-              <p className="text-xs text-slate-500 max-w-md mx-auto mb-6">
-                Votre commande <strong>#{orderId || 'AMO'}</strong> a bien été enregistrée. Notre équipe vous contactera au <strong>{formData.phone || confirmedOrder.phone || confirmedOrder.customer_phone}</strong> {deliveryType === 'PICKUP_STORE' ? 'dès que votre commande sera prête au retrait.' : 'avant la livraison.'}
+              <p className="text-xs text-slate-500 max-w-md mx-auto mb-6 leading-relaxed">
+                Votre commande <strong className="text-slate-900 font-mono">#{orderRef}</strong> a bien été enregistrée. Notre équipe vous contactera au <strong>{formData.phone || confirmedOrder.phone || confirmedOrder.customer_phone}</strong> {deliveryType === 'PICKUP_STORE' ? 'dès que votre commande sera prête au retrait.' : 'avant la livraison.'}
               </p>
 
               {/* Order Info Summary Card */}
               <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 text-left space-y-3 mb-6 text-xs">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                  <span className="text-slate-500">Numéro de commande :</span>
+                  <span className="font-mono font-bold text-slate-900 text-xs">#{orderRef}</span>
+                </div>
                 <div className="flex items-center justify-between pb-2 border-b border-slate-200">
                   <span className="text-slate-500">Magasin sélectionné :</span>
                   <span className="font-bold text-slate-900">{selectedStore?.name}</span>
@@ -295,24 +441,33 @@ export default function CheckoutModal() {
                 </div>
               </div>
 
-              {/* WhatsApp Quick Followup */}
-              <div className="space-y-3">
+              {/* Action Buttons */}
+              <div className="space-y-2.5">
+                <a
+                  href={`/track?order=${orderRef}`}
+                  onClick={handleClose}
+                  className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-emerald-800 hover:bg-emerald-700 text-white rounded-2xl font-bold text-xs transition-colors shadow-sm cursor-pointer"
+                >
+                  <Truck className="w-4 h-4" />
+                  <span>Suivre ma commande en temps réel</span>
+                </a>
+
                 <a
                   href={`https://wa.me/212600000000?text=${encodeURIComponent(
-                    `Bonjour Animal Market Only, j'ai passé la commande #${orderId} (${deliveryType === 'PICKUP_STORE' ? 'Click & Collect' : 'Livraison'}) pour ${formData.fullName || confirmedOrder.customer_name} au magasin ${selectedStore?.name}.`
+                    `Bonjour Animal Market Only, j'ai passé la commande #${orderRef} (${deliveryType === 'PICKUP_STORE' ? 'Click & Collect' : 'Livraison'}) pour ${formData.fullName || confirmedOrder.customer_name} au magasin ${selectedStore?.name}.`
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-emerald-800 hover:bg-emerald-700 text-white rounded-2xl font-bold text-xs transition-colors shadow-sm"
+                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-[#25D366]/10 hover:bg-[#25D366]/20 text-emerald-900 border border-[#25D366]/30 rounded-2xl font-bold text-xs transition-colors"
                 >
-                  <MessageSquare className="w-4 h-4" />
-                  <span>Suivre ma commande sur WhatsApp</span>
+                  <MessageSquare className="w-4 h-4 text-[#25D366]" />
+                  <span>Assistance sur WhatsApp</span>
                 </a>
 
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-bold text-xs transition-colors"
+                  className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-bold text-xs transition-colors cursor-pointer"
                 >
                   Retourner à la boutique
                 </button>
@@ -320,7 +475,7 @@ export default function CheckoutModal() {
             </div>
           ) : (
             /* Checkout Form */
-            <form onSubmit={handleConfirmOrder} className="p-6 sm:p-8">
+            <form onSubmit={handleConfirmOrder} className="p-6 sm:p-8 overflow-y-auto flex-1">
               {/* Modal Title */}
               <div className="mb-6">
                 <div className="flex items-center gap-2 text-emerald-800 text-xs font-black uppercase tracking-wider mb-1">
@@ -343,27 +498,41 @@ export default function CheckoutModal() {
               )}
 
               <div className="space-y-4">
-                {/* 📍 1. Select Nearest Store / Magasin */}
+                {/* 📍 1. Magasin sélectionné */}
                 <div className="space-y-2">
                   <label className="block text-xs font-bold uppercase text-slate-600">
-                    Choisissez le Magasin le plus proche de vous *
+                    {displayedStores.length === 1 ? 'Magasin sélectionné pour cette commande' : 'Choisissez le Magasin le plus proche de vous *'}
                   </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    {stores.map((store) => (
-                      <button
-                        key={store.id}
-                        type="button"
-                        onClick={() => setSelectedStoreId(store.id)}
-                        className={`p-3 rounded-2xl border text-left transition ${
-                          selectedStoreId === store.id
-                            ? 'bg-emerald-50 border-emerald-800 text-emerald-900 shadow-sm'
+                  <div className={`grid ${displayedStores.length === 1 ? 'grid-cols-1' : 'grid-cols-2'} gap-3`}>
+                    {displayedStores.map((store) => {
+                      const isSelected = selectedStoreId === store.id;
+                      const stockStatus = getStoreStockStatus(store.id);
+
+                      return (
+                        <button
+                          key={store.id}
+                          type="button"
+                          onClick={() => handleSelectStore(store)}
+                          className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${isSelected
+                            ? 'bg-emerald-50 border-emerald-800 text-emerald-900 shadow-sm ring-1 ring-emerald-800'
                             : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                        }`}
-                      >
-                        <span className="font-extrabold text-xs block">{store.name}</span>
-                        <span className="text-[10px] text-slate-400 block truncate">{store.address || 'Point de vente'}</span>
-                      </button>
-                    ))}
+                            }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-extrabold text-xs block text-slate-900">{store.name}</span>
+                            {isSelected && (
+                              <span className="w-2.5 h-2.5 rounded-full bg-emerald-700"></span>
+                            )}
+                          </div>
+                          <span className="text-[11px] text-slate-400 block truncate mt-0.5">{store.address || 'Point de vente'}</span>
+                          {stockStatus.text && (
+                            <span className={`text-[10px] font-bold block mt-1 ${stockStatus.available ? 'text-emerald-700' : 'text-rose-600'}`}>
+                              {stockStatus.text}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -376,11 +545,10 @@ export default function CheckoutModal() {
                     <button
                       type="button"
                       onClick={() => setDeliveryType('LIVRAISON')}
-                      className={`py-3 px-3 rounded-2xl text-xs font-extrabold flex items-center justify-center gap-2 border transition ${
-                        deliveryType === 'LIVRAISON'
-                          ? 'bg-emerald-800 text-white border-emerald-800 shadow-md ring-2 ring-emerald-800/20'
-                          : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
-                      }`}
+                      className={`py-3 px-3 rounded-2xl text-xs font-extrabold flex items-center justify-center gap-2 border transition ${deliveryType === 'LIVRAISON'
+                        ? 'bg-emerald-800 text-white border-emerald-800 shadow-md ring-2 ring-emerald-800/20'
+                        : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                        }`}
                     >
                       <span>🚚 Livraison à Domicile (+25 DH)</span>
                     </button>
@@ -388,11 +556,10 @@ export default function CheckoutModal() {
                     <button
                       type="button"
                       onClick={() => setDeliveryType('PICKUP_STORE')}
-                      className={`py-3 px-3 rounded-2xl text-xs font-extrabold flex items-center justify-center gap-2 border transition ${
-                        deliveryType === 'PICKUP_STORE'
-                          ? 'bg-emerald-800 text-white border-emerald-800 shadow-md ring-2 ring-emerald-800/20'
-                          : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
-                      }`}
+                      className={`py-3 px-3 rounded-2xl text-xs font-extrabold flex items-center justify-center gap-2 border transition ${deliveryType === 'PICKUP_STORE'
+                        ? 'bg-emerald-800 text-white border-emerald-800 shadow-md ring-2 ring-emerald-800/20'
+                        : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                        }`}
                     >
                       <span>🏪 Click & Collect (Retrait gratuit en magasin)</span>
                     </button>
@@ -455,7 +622,7 @@ export default function CheckoutModal() {
                         <MapPin className="w-3.5 h-3.5 text-slate-400" />
                         <span>Ville de livraison *</span>
                       </label>
-                      
+
                       {/* Quick City Pills */}
                       <div className="flex flex-wrap gap-1.5 mb-2">
                         {POPULAR_CITIES.map((city) => (
@@ -465,11 +632,10 @@ export default function CheckoutModal() {
                             onClick={() =>
                               setFormData({ ...formData, city: city === 'Autre ville' ? '' : city })
                             }
-                            className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
-                              formData.city === city
-                                ? 'bg-emerald-800 text-white shadow-xs'
-                                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                            }`}
+                            className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${formData.city === city
+                              ? 'bg-emerald-800 text-white shadow-xs'
+                              : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                              }`}
                           >
                             {city}
                           </button>

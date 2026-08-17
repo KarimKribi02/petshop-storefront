@@ -69,3 +69,12 @@ body {
   font-feature-settings: "tnum";
   font-variant-numeric: tabular-nums;
 }
+
+/* Hide scrollbar for carousel while keeping scroll functionality */
+.hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}

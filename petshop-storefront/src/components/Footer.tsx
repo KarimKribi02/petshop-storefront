@@ -38,25 +38,28 @@ export default function Footer({ settings = null }: FooterProps) {
     } catch (e) {}
   }, [settings]);
 
-  const storeName = mounted ? (storeSettings?.store_name || 'Petshop') : (settings?.store_name || 'Petshop');
+  const storeName = mounted
+    ? (storeSettings?.store_name && storeSettings.store_name !== 'Petshop Boutique' ? storeSettings.store_name : 'animal market only')
+    : (settings?.store_name && settings.store_name !== 'Petshop Boutique' ? settings.store_name : 'animal market only');
   const phone = mounted ? (storeSettings?.phone_number || '+212 6 00 00 00 00') : (settings?.phone_number || '+212 6 00 00 00 00');
-  const email = mounted ? (storeSettings?.support_email || 'contact@petshop.ma') : (settings?.support_email || 'contact@petshop.ma');
+  const email = mounted ? (storeSettings?.support_email || 'contact@animalmarketonly.ma') : (settings?.support_email || 'contact@animalmarketonly.ma');
   const address = mounted ? (storeSettings?.address || 'Marrakech, Maroc') : (settings?.address || 'Marrakech, Maroc');
-  const logoUrl = getMediaUrl(storeSettings?.logo_url || settings?.logo_url);
+  const rawLogo = storeSettings?.logo_url || settings?.logo_url;
+  const logoUrl = getMediaUrl(rawLogo);
   const description =
     (mounted ? storeSettings?.store_description : null) ||
     settings?.store_description ||
-    'Votre animalerie & boutique en ligne spécialisée en alimentation, soins et accessoires pour animaux à Marrakech et au Maroc.';
+    'Votre animalerie & boutique en ligne spécialisée en alimentation, soins et accessoires pour animaux à Marrakech et partout au Maroc.';
 
   return (
-    <footer className="bg-slate-900 text-slate-300 pt-14 pb-8 border-t border-slate-800">
+    <footer className="bg-[#0f172a] text-slate-300 pt-14 pb-8 border-t border-slate-800/80">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Guarantees Bar */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pb-12 border-b border-slate-800">
           
-          <div className="flex items-center gap-3 p-4 rounded-2xl bg-slate-800/60 border border-slate-700/50">
-            <div className="w-10 h-10 rounded-xl bg-emerald-950 text-emerald-400 flex items-center justify-center shrink-0">
+          <div className="flex items-center gap-3 p-4 rounded-2xl bg-slate-800/50 border border-slate-700/40 hover:border-emerald-500/30 transition-colors">
+            <div className="w-10 h-10 rounded-xl bg-emerald-950/80 text-emerald-400 border border-emerald-800/50 flex items-center justify-center shrink-0">
               <Truck className="w-5 h-5" />
             </div>
             <div>
@@ -65,8 +68,8 @@ export default function Footer({ settings = null }: FooterProps) {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 p-4 rounded-2xl bg-slate-800/60 border border-slate-700/50">
-            <div className="w-10 h-10 rounded-xl bg-emerald-950 text-emerald-400 flex items-center justify-center shrink-0">
+          <div className="flex items-center gap-3 p-4 rounded-2xl bg-slate-800/50 border border-slate-700/40 hover:border-emerald-500/30 transition-colors">
+            <div className="w-10 h-10 rounded-xl bg-emerald-950/80 text-emerald-400 border border-emerald-800/50 flex items-center justify-center shrink-0">
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
@@ -75,8 +78,8 @@ export default function Footer({ settings = null }: FooterProps) {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 p-4 rounded-2xl bg-slate-800/60 border border-slate-700/50">
-            <div className="w-10 h-10 rounded-xl bg-emerald-950 text-emerald-400 flex items-center justify-center shrink-0">
+          <div className="flex items-center gap-3 p-4 rounded-2xl bg-slate-800/50 border border-slate-700/40 hover:border-emerald-500/30 transition-colors">
+            <div className="w-10 h-10 rounded-xl bg-emerald-950/80 text-emerald-400 border border-emerald-800/50 flex items-center justify-center shrink-0">
               <Award className="w-5 h-5" />
             </div>
             <div>
@@ -85,8 +88,8 @@ export default function Footer({ settings = null }: FooterProps) {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 p-4 rounded-2xl bg-slate-800/60 border border-slate-700/50">
-            <div className="w-10 h-10 rounded-xl bg-emerald-950 text-emerald-400 flex items-center justify-center shrink-0">
+          <div className="flex items-center gap-3 p-4 rounded-2xl bg-slate-800/50 border border-slate-700/40 hover:border-emerald-500/30 transition-colors">
+            <div className="w-10 h-10 rounded-xl bg-emerald-950/80 text-emerald-400 border border-emerald-800/50 flex items-center justify-center shrink-0">
               <Clock className="w-5 h-5" />
             </div>
             <div>
@@ -100,16 +103,29 @@ export default function Footer({ settings = null }: FooterProps) {
         {/* Main Footer Links */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 py-12">
           
-          {/* Brand Info (2 columns) */}
+          {/* Brand Info & Logo (2 columns) */}
           <div className="lg:col-span-2 space-y-4">
-            <div className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-2xl bg-emerald-800 text-white flex items-center justify-center shadow-xs">
-                <Store className="w-4 h-4" />
-              </div>
-              <span className="text-lg font-black text-white tracking-tight uppercase" suppressHydrationWarning>
-                {storeName}
-              </span>
-            </div>
+            <Link href="/" className="inline-flex items-center gap-2 group">
+              {mounted && logoUrl ? (
+                <div className="bg-white p-2 rounded-2xl inline-flex items-center justify-center border border-slate-700 shadow-sm group-hover:border-emerald-500 transition-colors">
+                  <img
+                    src={logoUrl}
+                    alt={storeName}
+                    className="h-10 sm:h-12 w-auto max-w-[190px] object-contain"
+                  />
+                </div>
+              ) : (
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-800 text-white flex items-center justify-center shadow-xs">
+                    <Store className="w-5 h-5" />
+                  </div>
+                  <span className="text-lg font-black text-white tracking-tight uppercase" suppressHydrationWarning>
+                    {storeName}
+                  </span>
+                </div>
+              )}
+            </Link>
+
             <p className="text-xs text-slate-400 leading-relaxed max-w-sm">
               {description}
             </p>
@@ -144,30 +160,71 @@ export default function Footer({ settings = null }: FooterProps) {
             </div>
           </div>
 
-          {/* Quick Categories */}
+          {/* Nos Rayons Links */}
           <div className="space-y-3">
             <h4 className="text-xs font-black text-white uppercase tracking-wider">
               Nos Rayons
             </h4>
             <ul className="space-y-2 text-xs text-slate-400">
-              <li><Link href="/" className="hover:text-emerald-400 transition-colors">Alimentation Chien</Link></li>
-              <li><Link href="/" className="hover:text-emerald-400 transition-colors">Croquettes & Pâtées Chat</Link></li>
-              <li><Link href="/" className="hover:text-emerald-400 transition-colors">Litières & Hygiène</Link></li>
-              <li><Link href="/" className="hover:text-emerald-400 transition-colors">Oiseaux & Rongeurs</Link></li>
-              <li><Link href="/" className="hover:text-emerald-400 transition-colors">Vente de croquettes au Kilo</Link></li>
+              <li>
+                <Link href="/products?search=chien" className="hover:text-emerald-400 transition-colors flex items-center gap-1.5">
+                  <span>Alimentation Chien</span>
+                </Link>
+              </li>
+              <li>
+                <Link href="/products?search=chat" className="hover:text-emerald-400 transition-colors flex items-center gap-1.5">
+                  <span>Croquettes & Pâtées Chat</span>
+                </Link>
+              </li>
+              <li>
+                <Link href="/products?search=litiere" className="hover:text-emerald-400 transition-colors flex items-center gap-1.5">
+                  <span>Litières & Hygiène</span>
+                </Link>
+              </li>
+              <li>
+                <Link href="/products?search=oiseau" className="hover:text-emerald-400 transition-colors flex items-center gap-1.5">
+                  <span>Oiseaux & Rongeurs</span>
+                </Link>
+              </li>
+              <li>
+                <Link href="/products" className="hover:text-emerald-400 transition-colors flex items-center gap-1.5">
+                  <span>Vente de croquettes au Kilo</span>
+                </Link>
+              </li>
             </ul>
           </div>
 
-          {/* Customer Service */}
+          {/* Customer Service Links */}
           <div className="space-y-3">
             <h4 className="text-xs font-black text-white uppercase tracking-wider">
               Service Client
             </h4>
             <ul className="space-y-2 text-xs text-slate-400">
-              <li><Link href="/" className="hover:text-emerald-400 transition-colors">Comment commander ?</Link></li>
-              <li><Link href="/" className="hover:text-emerald-400 transition-colors">Zones et délais de livraison</Link></li>
-              <li><Link href="/" className="hover:text-emerald-400 transition-colors">Paiement à la livraison</Link></li>
-              <li><Link href="/" className="hover:text-emerald-400 transition-colors">Questions fréquentes (FAQ)</Link></li>
+              <li>
+                <Link href="/about" className="hover:text-emerald-400 transition-colors">
+                  À propos de notre boutique
+                </Link>
+              </li>
+              <li>
+                <Link href="/track" className="hover:text-emerald-400 transition-colors">
+                  Zones & suivi de livraison
+                </Link>
+              </li>
+              <li>
+                <Link href="/contact" className="hover:text-emerald-400 transition-colors">
+                  Service client & aide
+                </Link>
+              </li>
+              <li>
+                <Link href="/#faqs" className="hover:text-emerald-400 transition-colors">
+                  Questions fréquentes (FAQ)
+                </Link>
+              </li>
+              <li>
+                <Link href="/track" className="hover:text-emerald-400 transition-colors">
+                  Suivi de commande en direct
+                </Link>
+              </li>
             </ul>
           </div>
 
@@ -183,11 +240,11 @@ export default function Footer({ settings = null }: FooterProps) {
               </div>
               <div className="flex items-center gap-2">
                 <Phone className="w-4 h-4 text-emerald-400 shrink-0" />
-                <a href={`tel:${phone}`} className="hover:text-white font-mono">{phone}</a>
+                <a href={`tel:${phone}`} className="hover:text-emerald-400 font-mono transition-colors">{phone}</a>
               </div>
               <div className="flex items-center gap-2">
                 <Mail className="w-4 h-4 text-emerald-400 shrink-0" />
-                <a href={`mailto:${email}`} className="hover:text-white">{email}</a>
+                <a href={`mailto:${email}`} className="hover:text-emerald-400 transition-colors">{email}</a>
               </div>
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -198,10 +255,22 @@ export default function Footer({ settings = null }: FooterProps) {
 
         </div>
 
-        {/* Bottom Bar */}
-        <div className="pt-8 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-          <p suppressHydrationWarning>© {new Date().getFullYear()} {storeName}. Tous droits réservés.</p>
-          <div className="flex items-center gap-1">
+        {/* Bottom Bar with cdigital.ma link */}
+        <div className="pt-8 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
+          <p suppressHydrationWarning>
+            © {new Date().getFullYear()}{' '}
+            <a
+              href="https://cdigital.ma/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-emerald-400 hover:text-emerald-300 font-bold hover:underline transition-colors"
+            >
+              cdigital
+            </a>
+            . Tous droits réservés.
+          </p>
+
+          <div className="flex items-center gap-1.5 text-slate-400">
             <span>Fait avec passion pour les animaux au Maroc</span>
             <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />
           </div>

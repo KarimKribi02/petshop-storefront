@@ -16,6 +16,7 @@ export interface Brand {
   logo?: string | null;
   website?: string | null;
   description?: string | null;
+  products_count?: number;
 }
 
 export interface StoreStock {

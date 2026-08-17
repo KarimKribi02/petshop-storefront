@@ -1,13 +1,29 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Category } from '@/types';
-import { Sparkles, Dog, Cat, Bird, Fish, Heart, Layers } from 'lucide-react';
+import { getMediaUrl } from '@/lib/axios';
+import { Dog, Cat, Bird, Fish, Layers } from 'lucide-react';
+
+import Link from 'next/link';
 
 interface CategoryPillsProps {
   categories: Category[];
-  selectedCategory: number | null;
-  onSelectCategory: (categoryId: number | null) => void;
+  selectedCategory?: number | null;
+  onSelectCategory?: (categoryId: number | null) => void;
+}
+
+function getCategoryStyle(name: string): { gradient: string; icon: React.ReactNode } {
+  const lower = name.toLowerCase();
+  if (lower.includes('chien') || lower.includes('dog'))
+    return { gradient: 'from-amber-400 to-orange-500', icon: <Dog className="w-10 h-10 text-white" /> };
+  if (lower.includes('chat') || lower.includes('cat'))
+    return { gradient: 'from-purple-400 to-pink-500', icon: <Cat className="w-10 h-10 text-white" /> };
+  if (lower.includes('oiseau') || lower.includes('bird'))
+    return { gradient: 'from-sky-400 to-blue-500', icon: <Bird className="w-10 h-10 text-white" /> };
+  if (lower.includes('poisson') || lower.includes('fish') || lower.includes('aqua'))
+    return { gradient: 'from-cyan-400 to-teal-500', icon: <Fish className="w-10 h-10 text-white" /> };
+  return { gradient: 'from-emerald-400 to-emerald-600', icon: <Layers className="w-10 h-10 text-white" /> };
 }
 
 export default function CategoryPills({
@@ -15,111 +31,170 @@ export default function CategoryPills({
   selectedCategory,
   onSelectCategory,
 }: CategoryPillsProps) {
-  const getCategoryIcon = (name: string) => {
-    const lower = name.toLowerCase();
-    if (lower.includes('chien') || lower.includes('dog')) return <Dog className="w-5 h-5" />;
-    if (lower.includes('chat') || lower.includes('cat')) return <Cat className="w-5 h-5" />;
-    if (lower.includes('oiseau') || lower.includes('bird')) return <Bird className="w-5 h-5" />;
-    if (lower.includes('poisson') || lower.includes('fish') || lower.includes('aqua')) return <Fish className="w-5 h-5" />;
-    return <Layers className="w-5 h-5" />;
-  };
+  const [paused, setPaused] = useState(false);
+
+  // Filter categories to only keep those with at least 1 available product
+  const validCategories = categories.filter((cat) => (cat.products_count ?? 0) > 0);
+
+  if (validCategories.length === 0) return null;
+
+  const items = validCategories.map((cat) => {
+    const count = cat.products_count ?? 0;
+    const style = getCategoryStyle(cat.name);
+    return {
+      id: cat.id,
+      name: cat.name,
+      sub: `${count} produit${count > 1 ? 's' : ''}`,
+      image: cat.image ? getMediaUrl(cat.image) : null,
+      gradient: style.gradient,
+      icon: style.icon,
+    };
+  });
+
+  const CARD_SLOT = 190;
+  const copiesPerHalf = Math.max(5, Math.ceil(1920 / (items.length * CARD_SLOT)) + 1);
+  const halfItems = Array.from({ length: copiesPerHalf }, () => items).flat();
+  const loopItems = [...halfItems, ...halfItems];
+  const duration = `${Math.max(20, items.length * copiesPerHalf * 2.5)}s`;
 
   return (
-    <div className="py-6">
-      <div className="flex items-center justify-between mb-4">
+    <div className="py-8">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <span className="text-xs font-black uppercase tracking-wider text-emerald-800">
+          <span className="text-xs font-black uppercase tracking-widest text-emerald-700">
             Explorer par univers
           </span>
-          <h2 className="text-xl sm:text-2xl font-black text-slate-900">
+          <h2 className="text-xl sm:text-2xl font-black text-slate-900 mt-0.5">
             Catégories d&apos;animaux
           </h2>
         </div>
-
-        {selectedCategory !== null && (
-          <button
-            type="button"
-            onClick={() => onSelectCategory(null)}
-            className="text-xs font-bold text-emerald-800 hover:text-emerald-950 underline cursor-pointer"
+        {selectedCategory != null && (
+          <Link
+            href="/products"
+            className="text-xs font-bold text-emerald-800 hover:text-emerald-950 underline cursor-pointer transition-colors"
           >
-            Réinitialiser les filtres
-          </button>
+            Voir tous les produits
+          </Link>
         )}
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-        {/* All Products Pill */}
-        <button
-          type="button"
-          onClick={() => onSelectCategory(null)}
-          className={`p-4 rounded-3xl border text-left transition-all duration-200 flex flex-col justify-between min-h-[110px] cursor-pointer ${
-            selectedCategory === null
-              ? 'bg-emerald-900 text-white border-emerald-900 shadow-md shadow-emerald-950/15 scale-[1.02]'
-              : 'bg-white hover:bg-slate-50 border-slate-200/80 text-slate-800 hover:border-emerald-300'
-          }`}
+      {/* Carousel */}
+      <div
+        className="relative overflow-hidden w-full"
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
+      >
+        {/* Left fade */}
+        <div
+          className="pointer-events-none absolute left-0 top-0 h-full w-20 z-10"
+          style={{ background: 'linear-gradient(to right, #f8fafc 50%, transparent 100%)' }}
+        />
+        {/* Right fade */}
+        <div
+          className="pointer-events-none absolute right-0 top-0 h-full w-20 z-10"
+          style={{ background: 'linear-gradient(to left, #f8fafc 50%, transparent 100%)' }}
+        />
+
+        {/* Scrolling track */}
+        <div
+          className="flex py-3"
+          style={{
+            width: 'max-content',
+            gap: '20px',
+            animationName: 'category-scroll',
+            animationDuration: duration,
+            animationTimingFunction: 'linear',
+            animationIterationCount: 'infinite',
+            animationPlayState: paused ? 'paused' : 'running',
+          }}
         >
-          <div
-            className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
-              selectedCategory === null
-                ? 'bg-emerald-800 text-amber-300'
-                : 'bg-emerald-50 text-emerald-800'
-            }`}
-          >
-            <Sparkles className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="font-bold text-xs">Tous les Animaux</h3>
-            <span
-              className={`text-[11px] font-semibold ${
-                selectedCategory === null ? 'text-emerald-200' : 'text-slate-400'
-              }`}
-            >
-              Catalogue complet
-            </span>
-          </div>
-        </button>
+          {loopItems.map((item, index) => {
+            const isSelected = selectedCategory === item.id;
 
-        {/* Dynamic Category Pills */}
-        {categories.map((cat) => {
-          const isSelected = selectedCategory === cat.id;
-
-          return (
-            <button
-              key={cat.id}
-              type="button"
-              onClick={() => onSelectCategory(cat.id)}
-              className={`p-4 rounded-3xl border text-left transition-all duration-200 flex flex-col justify-between min-h-[110px] cursor-pointer ${
-                isSelected
-                  ? 'bg-emerald-900 text-white border-emerald-900 shadow-md shadow-emerald-950/15 scale-[1.02]'
-                  : 'bg-white hover:bg-slate-50 border-slate-200/80 text-slate-800 hover:border-emerald-300'
-              }`}
-            >
-              <div
-                className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
-                  isSelected
-                    ? 'bg-emerald-800 text-amber-300'
-                    : 'bg-emerald-50 text-emerald-800'
-                }`}
+            return (
+              <Link
+                key={`cat-${item.id}-${index}`}
+                href={`/products?categoryId=${item.id}`}
+                className={`
+                  relative flex-shrink-0 flex flex-col items-center justify-start cursor-pointer group
+                  bg-white rounded-2xl border transition-all duration-300 no-underline text-inherit
+                  ${
+                    isSelected
+                      ? 'border-emerald-500 ring-2 ring-emerald-500 ring-offset-2 shadow-[0_6px_20px_rgba(5,150,105,0.18)] scale-[1.03]'
+                      : 'border-slate-100 shadow-[0_4px_14px_rgba(0,0,0,0.06)] hover:border-emerald-200 hover:shadow-[0_8px_20px_rgba(0,0,0,0.09)] hover:-translate-y-1'
+                  }
+                `}
+                style={{
+                  width: '170px',
+                  minWidth: '170px',
+                  height: '220px',
+                  padding: '14px',
+                  borderRadius: '16px',
+                }}
               >
-                {getCategoryIcon(cat.name)}
-              </div>
+                {/* Active check badge */}
+                {isSelected && (
+                  <div className="absolute top-2.5 right-2.5 z-10 w-5 h-5 bg-emerald-600 rounded-full flex items-center justify-center shadow-md">
+                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                )}
 
-              <div>
-                <h3 className="font-bold text-xs line-clamp-1">{cat.name}</h3>
+                {/* Fixed Uniform Image Container */}
+                <div
+                  className="w-[140px] h-[140px] rounded-[14px] overflow-hidden flex-shrink-0 flex items-center justify-center bg-slate-50 relative"
+                >
+                  {item.image ? (
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      className="w-full h-full object-cover object-center block transform group-hover:scale-105 transition-transform duration-300"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
+                        if (fallback) fallback.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+
+                  <div
+                    className={`w-full h-full bg-gradient-to-br ${item.gradient} flex items-center justify-center ${
+                      item.image ? 'hidden' : 'flex'
+                    }`}
+                  >
+                    {item.icon}
+                  </div>
+                </div>
+
+                {/* Title */}
                 <span
-                  className={`text-[11px] font-semibold ${
-                    isSelected ? 'text-emerald-200' : 'text-slate-400'
+                  className={`text-[13px] font-bold text-center leading-snug line-clamp-1 w-full mt-2.5 transition-colors duration-200 ${
+                    isSelected ? 'text-emerald-800' : 'text-slate-900 group-hover:text-emerald-800'
                   }`}
                 >
-                  {cat.products_count !== undefined
-                    ? `${cat.products_count} produits`
-                    : 'Explorer'}
+                  {item.name}
                 </span>
-              </div>
-            </button>
-          );
-        })}
+
+                {/* Products count */}
+                {item.sub && (
+                  <span className="text-[11px] text-slate-400 font-medium text-center mt-0.5">
+                    {item.sub}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+        </div>
       </div>
+
+      <style>{`
+        @keyframes category-scroll {
+          0%   { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+      `}</style>
     </div>
   );
 }

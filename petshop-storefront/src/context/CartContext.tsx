@@ -38,6 +38,7 @@ interface CartContextType {
   setConflictModal: React.Dispatch<React.SetStateAction<ConflictModalState>>;
   handleClearAndAddNew: () => void;
   closeConflictModal: () => void;
+  updateCartStore: (storeId: number, storeName: string) => void;
   currentStore: StoreInfo | null;
   totalItems: number;
   totalPrice: number;
@@ -294,6 +295,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     return totalPrice + shippingFee;
   }, [totalPrice, shippingFee]);
 
+  const updateCartStore = (storeId: number, storeName: string) => {
+    setItems((prev) =>
+      prev.map((item) => ({
+        ...item,
+        store_id: storeId,
+        store_name: storeName,
+        product: {
+          ...item.product,
+          selected_store_id: storeId,
+        },
+      }))
+    );
+  };
+
   return (
     <CartContext.Provider
       value={{
@@ -315,6 +330,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         setConflictModal,
         handleClearAndAddNew,
         closeConflictModal,
+        updateCartStore,
         currentStore,
         totalItems,
         totalPrice,

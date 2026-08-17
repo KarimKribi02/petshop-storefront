@@ -4,7 +4,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/a
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 15000,
+  timeout: 30000, // 30 seconds — increased to handle slow backend cold starts
   headers: {
     'Accept': 'application/json',
     'Content-Type': 'application/json',
@@ -16,11 +16,19 @@ export const apiClient = axios.create({
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Provide clean error message
-    const message =
-      error.response?.data?.message ||
-      error.message ||
-      'Une erreur de communication est survenue.';
+    // Distinguish timeout vs network vs server errors
+    let message: string;
+    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+      message = 'Le serveur met trop de temps à répondre. Vérifiez que le backend Laravel est bien démarré (php artisan serve).';
+    } else if (!error.response) {
+      message = 'Impossible de contacter le serveur. Vérifiez votre connexion ou que le backend est lancé sur le port 8000.';
+    } else {
+      message =
+        error.response?.data?.message ||
+        error.message ||
+        'Une erreur de communication est survenue.';
+    }
+    console.warn('[API Error]', error.config?.url, '-', message);
     return Promise.reject(new Error(message));
   }
 );

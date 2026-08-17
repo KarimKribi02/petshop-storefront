@@ -1,13 +1,16 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import apiClient from '@/lib/axios';
 import { Product, Category, Faq, StoreSettings, Brand } from '@/types';
 import Header from '@/components/Header';
 import HeroBanner from '@/components/HeroBanner';
 import CategoryPills from '@/components/CategoryPills';
+import BrandsCarousel from '@/components/BrandsCarousel';
 import ProductCard from '@/components/ProductCard';
 import ProductModal from '@/components/ProductModal';
+import WhyChooseUs from '@/components/WhyChooseUs';
+import HomeBlogSection from '@/components/HomeBlogSection';
 import FaqSection from '@/components/FaqSection';
 import Footer from '@/components/Footer';
 import { 
@@ -24,7 +27,9 @@ import {
   Award,
   Truck,
   ShieldCheck,
-  RefreshCw
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { getMediaUrl } from '@/lib/axios';
@@ -47,6 +52,23 @@ export default function HomePage() {
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
 
   const productsSectionRef = useRef<HTMLDivElement>(null);
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
+
+  const updateScrollState = useCallback(() => {
+    const el = carouselRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 8);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 8);
+  }, []);
+
+  const scrollCarousel = (dir: 'left' | 'right') => {
+    const el = carouselRef.current;
+    if (!el) return;
+    const cardWidth = 260;
+    el.scrollBy({ left: dir === 'right' ? cardWidth * 2 : -cardWidth * 2, behavior: 'smooth' });
+  };
 
   // Fetch initial data
   const fetchData = async () => {
@@ -123,6 +145,14 @@ export default function HomePage() {
     fetchData();
   }, []);
 
+  // Reset carousel position & update arrow state when products change
+  useEffect(() => {
+    const el = carouselRef.current;
+    if (!el) return;
+    el.scrollLeft = 0;
+    setTimeout(updateScrollState, 50);
+  }, [products, updateScrollState]);
+
   const scrollToProducts = () => {
     if (productsSectionRef.current) {
       productsSectionRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -139,6 +169,46 @@ export default function HomePage() {
     scrollToProducts();
   };
 
+  // Filter and enrich categories with dynamic product count (only categories with >= 1 product)
+  const categoriesWithProducts = React.useMemo(() => {
+    return categories
+      .map((cat) => {
+        const count =
+          cat.products_count !== undefined
+            ? cat.products_count
+            : products.filter(
+                (p) =>
+                  p.category_id === cat.id &&
+                  (p.is_active === true || p.is_active === 1 || p.is_active === undefined)
+              ).length;
+        return {
+          ...cat,
+          products_count: count,
+        };
+      })
+      .filter((cat) => (cat.products_count ?? 0) > 0);
+  }, [categories, products]);
+
+  // Filter and enrich brands with dynamic product count (only brands with >= 1 product)
+  const brandsWithProducts = React.useMemo(() => {
+    return brands
+      .map((b) => {
+        const count =
+          b.products_count !== undefined
+            ? b.products_count
+            : products.filter(
+                (p) =>
+                  p.brand_id === b.id &&
+                  (p.is_active === true || p.is_active === 1 || p.is_active === undefined)
+              ).length;
+        return {
+          ...b,
+          products_count: count,
+        };
+      })
+      .filter((b) => (b.products_count ?? 0) > 0);
+  }, [brands, products]);
+
   const selectedCategoryName = categories.find((c) => c.id === selectedCategory)?.name;
 
   return (
@@ -150,25 +220,32 @@ export default function HomePage() {
         onSelectCategory={handleCategorySelect}
         onSearchSubmit={handleSearchSubmit}
         settings={settings}
+        activePage="home"
       />
 
       {/* Main Content */}
       <main className="flex-1">
         
         {/* Hero Section */}
-        <HeroBanner onExploreClick={scrollToProducts} />
+        <HeroBanner 
+          onExploreClick={scrollToProducts} 
+          categories={categories}
+          onSelectCategory={handleCategorySelect}
+        />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
-          {/* Category Pills Grid */}
-          <CategoryPills
-            categories={categories}
-            selectedCategory={selectedCategory}
-            onSelectCategory={handleCategorySelect}
-          />
+          {/* 1. Category Pills Grid */}
+          {categoriesWithProducts.length > 0 && (
+            <CategoryPills
+              categories={categoriesWithProducts}
+              selectedCategory={selectedCategory}
+              onSelectCategory={handleCategorySelect}
+            />
+          )}
 
-          {/* Products Catalogue Section */}
-          <section ref={productsSectionRef} className="py-8">
+          {/* 2. Products Catalogue Section */}
+          <section ref={productsSectionRef} id="products" className="py-8 scroll-mt-20">
             
             {/* Catalogue Controls Bar */}
             <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200/80 shadow-xs mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -190,7 +267,7 @@ export default function HomePage() {
               </div>
 
               {/* Filters & Sorting */}
-              <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+              <div id="marques" className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
                 
                 {/* Reset Active Filters badge */}
                 {(selectedCategory !== null || selectedBrand !== null || searchTerm) && (
@@ -243,7 +320,7 @@ export default function HomePage() {
 
             </div>
 
-            {/* Products Grid */}
+            {/* Products Carousel */}
             {isLoading ? (
               <div className="py-20 flex flex-col items-center justify-center text-center">
                 <Loader2 className="w-10 h-10 text-emerald-800 animate-spin mb-3" />
@@ -252,14 +329,65 @@ export default function HomePage() {
                 </span>
               </div>
             ) : products.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 sm:gap-6">
-                {products.map((product) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    onQuickView={(p) => setQuickViewProduct(p)}
-                  />
-                ))}
+              <div className="relative">
+                {/* Left Arrow */}
+                <button
+                  type="button"
+                  onClick={() => scrollCarousel('left')}
+                  disabled={!canScrollLeft}
+                  className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-20 w-11 h-11 rounded-full bg-white border border-slate-200 shadow-lg flex items-center justify-center transition-all duration-200 hover:bg-emerald-50 hover:border-emerald-300 hover:shadow-emerald-100 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-slate-200"
+                  aria-label="Produits précédents"
+                >
+                  <ChevronLeft className="w-5 h-5 text-slate-700" />
+                </button>
+
+                {/* Right Arrow */}
+                <button
+                  type="button"
+                  onClick={() => scrollCarousel('right')}
+                  disabled={!canScrollRight}
+                  className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-20 w-11 h-11 rounded-full bg-white border border-slate-200 shadow-lg flex items-center justify-center transition-all duration-200 hover:bg-emerald-50 hover:border-emerald-300 hover:shadow-emerald-100 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-slate-200"
+                  aria-label="Produits suivants"
+                >
+                  <ChevronRight className="w-5 h-5 text-slate-700" />
+                </button>
+
+                {/* Scrollable Track */}
+                <div
+                  ref={carouselRef}
+                  onScroll={updateScrollState}
+                  style={{
+                    display: 'flex',
+                    gap: '1.25rem',
+                    overflowX: 'auto',
+                    scrollSnapType: 'x mandatory',
+                    paddingBottom: '12px',
+                    scrollbarWidth: 'none',
+                    msOverflowStyle: 'none',
+                  }}
+                  className="hide-scrollbar"
+                >
+                  {products.map((product) => (
+                    <div
+                      key={product.id}
+                      style={{
+                        flex: '0 0 260px',
+                        scrollSnapAlign: 'start',
+                      }}
+                      className="flex flex-col h-full self-stretch"
+                    >
+                      <ProductCard
+                        product={product}
+                        onQuickView={(p) => setQuickViewProduct(p)}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                {/* Counter */}
+                <p className="text-center text-xs text-slate-400 font-semibold mt-3">
+                  {products.length} produit{products.length > 1 ? 's' : ''} disponible{products.length > 1 ? 's' : ''} — faites défiler pour voir tout
+                </p>
               </div>
             ) : (
               <div className="bg-white rounded-3xl border border-slate-200/80 p-12 text-center max-w-lg mx-auto shadow-xs">
@@ -288,43 +416,34 @@ export default function HomePage() {
 
           </section>
 
-          {/* Value Proposition Highlights Banner */}
-          <section className="my-14 bg-gradient-to-br from-emerald-900 to-emerald-950 rounded-3xl p-8 sm:p-12 text-white relative overflow-hidden shadow-xl shadow-emerald-950/15">
-            <div className="relative z-10 max-w-3xl space-y-4">
-              <span className="px-3 py-1 bg-emerald-800 text-amber-300 text-xs font-black rounded-full border border-emerald-700">
-                Pourquoi choisir notre boutique ?
-              </span>
-              <h2 className="text-2xl sm:text-3xl font-black leading-tight">
-                La référence de l&apos;alimentation et du bien-être animal à Marrakech
-              </h2>
-              <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed">
-                Nous sélectionnons rigoureusement les meilleures marques internationales et locales. Profitez de la flexibilité d&apos;acheter au kilo ou en sacs fermés, et faites-vous livrer chez vous avec le confort du paiement en espèces à la livraison.
-              </p>
-              <div className="pt-2 flex flex-wrap gap-4 text-xs font-bold text-emerald-200">
-                <span className="flex items-center gap-1.5">
-                  <Truck className="w-4 h-4 text-amber-400" />
-                  Livraison 24h Marrakech
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4 text-amber-400" />
-                  Paiement à la livraison
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <Award className="w-4 h-4 text-amber-400" />
-                  Garantie fraîcheur & authenticité
-                </span>
-              </div>
-            </div>
-          </section>
+          {/* 3. Brands Carousel (only if brands with products exist) */}
+          {brandsWithProducts.length > 0 && (
+            <BrandsCarousel
+              brands={brandsWithProducts}
+              selectedBrand={selectedBrand}
+              onSelectBrand={(id) => {
+                setSelectedBrand(id);
+                scrollToProducts();
+              }}
+            />
+          )}
 
-          {/* FAQs Section */}
-          <FaqSection faqs={faqs} />
+          {/* 4. Why Choose Us Section */}
+          <WhyChooseUs />
+
+          {/* 5. Blog & Tips Section */}
+          <HomeBlogSection />
+
+          {/* 6. FAQs Section */}
+          <FaqSection faqs={faqs} phone={settings?.phone_number} />
 
         </div>
       </main>
 
       {/* Global Footer */}
-      <Footer settings={settings} />
+      <div id="contact" className="scroll-mt-20">
+        <Footer settings={settings} />
+      </div>
 
       {/* Floating WhatsApp CTA Button */}
       <a
