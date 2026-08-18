@@ -39,12 +39,10 @@ export default function CategoryPills({
   if (validCategories.length === 0) return null;
 
   const items = validCategories.map((cat) => {
-    const count = cat.products_count ?? 0;
     const style = getCategoryStyle(cat.name);
     return {
       id: cat.id,
       name: cat.name,
-      sub: `${count} produit${count > 1 ? 's' : ''}`,
       image: cat.image ? getMediaUrl(cat.image) : null,
       gradient: style.gradient,
       icon: style.icon,
@@ -128,7 +126,7 @@ export default function CategoryPills({
                 style={{
                   width: '170px',
                   minWidth: '170px',
-                  height: '220px',
+                  height: '195px',
                   padding: '14px',
                   borderRadius: '16px',
                 }}
@@ -176,13 +174,6 @@ export default function CategoryPills({
                 >
                   {item.name}
                 </span>
-
-                {/* Products count */}
-                {item.sub && (
-                  <span className="text-[11px] text-slate-400 font-medium text-center mt-0.5">
-                    {item.sub}
-                  </span>
-                )}
               </Link>
             );
           })}
