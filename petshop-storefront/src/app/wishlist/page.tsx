@@ -60,24 +60,7 @@ export default function WishlistPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#fafaf8] flex flex-col">
-      {/* Announcement Bar */}
-      <div className="bg-[#1a4731] text-white py-2.5 px-4 text-xs font-semibold">
-        <div className="max-w-7xl mx-auto flex items-center justify-center flex-wrap gap-6 text-center">
-          <span className="flex items-center gap-1.5">
-            <Truck className="w-3.5 h-3.5 text-emerald-400" />
-            Livraison gratuite dès 499 DH
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Leaf className="w-3.5 h-3.5 text-emerald-400" />
-            100% Ingrédients naturels & sains
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-            Approuvé par 50 000+ animaux
-          </span>
-        </div>
-      </div>
+    <div className="min-h-screen flex flex-col bg-[#fafaf8] text-slate-900 selection:bg-emerald-200 selection:text-emerald-950 font-sans">
 
       {/* Header */}
       <Header

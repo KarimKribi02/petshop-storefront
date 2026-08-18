@@ -29,7 +29,8 @@ import {
   ShieldCheck,
   RefreshCw,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ChevronDown
 } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { getMediaUrl } from '@/lib/axios';
@@ -51,6 +52,12 @@ export default function HomePage() {
   // Quick View Modal
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
 
+  // Custom Dropdowns States
+  const [isBrandDropdownOpen, setIsBrandDropdownOpen] = useState(false);
+  const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
+  const brandDropdownRef = useRef<HTMLDivElement>(null);
+  const sortDropdownRef = useRef<HTMLDivElement>(null);
+
   const productsSectionRef = useRef<HTMLDivElement>(null);
   const carouselRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -66,8 +73,10 @@ export default function HomePage() {
   const scrollCarousel = (dir: 'left' | 'right') => {
     const el = carouselRef.current;
     if (!el) return;
-    const cardWidth = 260;
-    el.scrollBy({ left: dir === 'right' ? cardWidth * 2 : -cardWidth * 2, behavior: 'smooth' });
+    const cardEl = el.firstElementChild as HTMLElement | null;
+    // Scroll 1 card width at a time (card width + 20px gap)
+    const cardWidth = cardEl ? cardEl.offsetWidth + 20 : 280;
+    el.scrollBy({ left: dir === 'right' ? cardWidth : -cardWidth, behavior: 'smooth' });
   };
 
   // Fetch initial data
@@ -159,8 +168,28 @@ export default function HomePage() {
     }
   };
 
-  const handleCategorySelect = (catId: number | null) => {
-    setSelectedCategory(catId);
+  // Click outside to close custom dropdowns
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        brandDropdownRef.current &&
+        !brandDropdownRef.current.contains(e.target as Node)
+      ) {
+        setIsBrandDropdownOpen(false);
+      }
+      if (
+        sortDropdownRef.current &&
+        !sortDropdownRef.current.contains(e.target as Node)
+      ) {
+        setIsSortDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleCategorySelect = (categoryId: number | null) => {
+    setSelectedCategory(categoryId);
     scrollToProducts();
   };
 
@@ -278,44 +307,141 @@ export default function HomePage() {
                       setSelectedBrand(null);
                       setSearchTerm('');
                     }}
-                    className="flex items-center gap-1 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold transition-colors cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                     <span>Effacer filtres</span>
                   </button>
                 )}
 
-                {/* Brands filter if brands exist */}
-                {brands.length > 0 && (
-                  <select
-                    value={selectedBrand || ''}
-                    onChange={(e) =>
-                      setSelectedBrand(e.target.value ? Number(e.target.value) : null)
-                    }
-                    className="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-700"
-                  >
-                    <option value="">Toutes les marques</option>
-                    {brands.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.name}
-                      </option>
-                    ))}
-                  </select>
+                {/* 1. Custom Brands Dropdown (Only brands with products) */}
+                {brandsWithProducts.length > 0 && (
+                  <div className="relative" ref={brandDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsBrandDropdownOpen(!isBrandDropdownOpen);
+                        setIsSortDropdownOpen(false);
+                      }}
+                      className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-2xs border ${
+                        selectedBrand !== null
+                          ? 'bg-emerald-50 text-emerald-900 border-emerald-300 font-extrabold ring-1 ring-emerald-600/30'
+                          : 'bg-slate-50 hover:bg-slate-100/80 text-slate-700 border-slate-200'
+                      }`}
+                    >
+                      <span className="truncate max-w-[140px] sm:max-w-[180px]">
+                        {brandsWithProducts.find((b) => b.id === selectedBrand)?.name || 'Toutes les marques'}
+                      </span>
+                      <ChevronDown
+                        className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
+                          isBrandDropdownOpen ? 'rotate-180 text-emerald-700' : ''
+                        }`}
+                      />
+                    </button>
+
+                    {isBrandDropdownOpen && (
+                      <div className="absolute right-0 sm:left-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 py-1.5 z-50 animate-scale-up max-h-64 overflow-y-auto">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedBrand(null);
+                            setIsBrandDropdownOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold transition-colors cursor-pointer ${
+                            selectedBrand === null
+                              ? 'bg-emerald-50 text-emerald-900 font-extrabold'
+                              : 'text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <span>Toutes les marques</span>
+                          {selectedBrand === null && <Check className="w-3.5 h-3.5 text-emerald-700" />}
+                        </button>
+
+                        {brandsWithProducts.map((b) => (
+                          <button
+                            key={b.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedBrand(b.id);
+                              setIsBrandDropdownOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold transition-colors cursor-pointer ${
+                              selectedBrand === b.id
+                                ? 'bg-emerald-50 text-emerald-900 font-extrabold'
+                                : 'text-slate-700 hover:bg-slate-50'
+                            }`}
+                          >
+                            <span className="truncate">{b.name}</span>
+                            <div className="flex items-center gap-1.5">
+                              {b.products_count !== undefined && (
+                                <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
+                                  {b.products_count}
+                                </span>
+                              )}
+                              {selectedBrand === b.id && (
+                                <Check className="w-3.5 h-3.5 text-emerald-700" />
+                              )}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
 
-                {/* Sort Order Selector */}
-                <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-2xl">
-                  <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as any)}
-                    className="bg-transparent text-xs font-bold text-slate-700 focus:outline-none cursor-pointer"
+                {/* 2. Custom Sort Order Dropdown */}
+                <div className="relative" ref={sortDropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSortDropdownOpen(!isSortDropdownOpen);
+                      setIsBrandDropdownOpen(false);
+                    }}
+                    className="px-3.5 py-2.5 bg-slate-50 hover:bg-slate-100/80 text-slate-700 border border-slate-200 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-2xs"
                   >
-                    <option value="latest">Nouveautés & Top Ventes</option>
-                    <option value="price_asc">Prix croissant (DH)</option>
-                    <option value="price_desc">Prix décroissant (DH)</option>
-                  </select>
+                    <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
+                    <span>
+                      {sortBy === 'price_asc'
+                        ? 'Prix croissant (DH)'
+                        : sortBy === 'price_desc'
+                        ? 'Prix décroissant (DH)'
+                        : 'Nouveautés & Top Ventes'}
+                    </span>
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
+                        isSortDropdownOpen ? 'rotate-180 text-emerald-700' : ''
+                      }`}
+                    />
+                  </button>
+
+                  {isSortDropdownOpen && (
+                    <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 py-1.5 z-50 animate-scale-up">
+                      {[
+                        { value: 'latest', label: 'Nouveautés & Top Ventes' },
+                        { value: 'price_asc', label: 'Prix croissant (DH)' },
+                        { value: 'price_desc', label: 'Prix décroissant (DH)' },
+                      ].map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => {
+                            setSortBy(opt.value as any);
+                            setIsSortDropdownOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold transition-colors cursor-pointer ${
+                            sortBy === opt.value
+                              ? 'bg-emerald-50 text-emerald-900 font-extrabold'
+                              : 'text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <span>{opt.label}</span>
+                          {sortBy === opt.value && <Check className="w-3.5 h-3.5 text-emerald-700" />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
+
               </div>
 
             </div>

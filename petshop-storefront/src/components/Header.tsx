@@ -90,11 +90,10 @@ export default function Header({
         window.requestAnimationFrame(() => {
           const y = window.scrollY;
           setIsScrolled((prev) => {
-            // Activate when scrolling down past 80px
-            if (!prev && y > 80) return true;
-            // Deactivate when scrolling back up near top (< 20px)
-            if (prev && y < 20) return false;
-            // Maintain current state in between (20px - 80px)
+            // Activate when scrolling down past the main header (> 160px)
+            if (!prev && y > 160) return true;
+            // Deactivate when scrolling back up near top (< 60px)
+            if (prev && y < 60) return false;
             return prev;
           });
           ticking = false;
@@ -107,6 +106,35 @@ export default function Header({
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Bulletproof scroll lock for mobile & iOS Safari when burger menu is open
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      const origBodyOverflow = document.body.style.overflow;
+      const origHtmlOverflow = document.documentElement.style.overflow;
+      const origTouchAction = document.body.style.touchAction;
+
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.touchAction = 'none';
+
+      const preventBackgroundScroll = (e: TouchEvent) => {
+        const target = e.target as HTMLElement;
+        if (!target.closest('.mobile-drawer-scrollable')) {
+          if (e.cancelable) e.preventDefault();
+        }
+      };
+
+      document.addEventListener('touchmove', preventBackgroundScroll, { passive: false });
+
+      return () => {
+        document.body.style.overflow = origBodyOverflow;
+        document.documentElement.style.overflow = origHtmlOverflow;
+        document.body.style.touchAction = origTouchAction;
+        document.removeEventListener('touchmove', preventBackgroundScroll);
+      };
+    }
+  }, [mobileMenuOpen]);
 
   // Sync settings
   useEffect(() => {
@@ -254,12 +282,8 @@ export default function Header({
 
   return (
     <>
-      {/* ── 1. MAIN NORMAL HEADER (Completely stable in document flow, 0 layout shift, completely hidden during scroll) ── */}
-      <header 
-        className={`relative w-full bg-white border-b border-slate-100 z-30 transition-all duration-200 ease-out ${
-          isScrolled ? 'opacity-0 invisible pointer-events-none' : 'opacity-100 visible pointer-events-auto'
-        }`}
-      >
+      {/* ── 1. MAIN NORMAL HEADER (In document flow, scrolls naturally with page) ── */}
+      <header className="relative w-full bg-white border-b border-slate-100 z-30">
         
         {/* Top Announcement Bar */}
         <div className="bg-[#fcfdfd] border-b border-slate-200/70 text-slate-600 text-xs py-1.5 px-4">
@@ -319,6 +343,7 @@ export default function Header({
                     src={logoUrl}
                     alt={storeName}
                     className="h-11 sm:h-13 md:h-14 w-auto max-w-[180px] sm:max-w-[220px] object-contain transition-transform group-hover:scale-102"
+                    style={{ maxHeight: '48px', maxWidth: '200px', objectFit: 'contain' }}
                   />
                 ) : (
                   <div className="h-11 sm:h-13 w-28 sm:w-36 bg-slate-100 rounded-xl animate-pulse" />
@@ -707,8 +732,8 @@ export default function Header({
 
       {/* ── 2. FIXED COMPACT STICKY HEADER (Centered horizontally, width 100%, max-w 1500px, height ~60px, rounded-12px) ── */}
       <div
-        className={`fixed top-2 sm:top-2.5 left-0 right-0 z-[9999] px-2.5 sm:px-4 md:px-5 flex justify-center transition-all duration-250 ease-out transform pointer-events-none ${
-          isScrolled
+        className={`fixed top-2 sm:top-2.5 left-0 right-0 z-40 px-2.5 sm:px-4 md:px-5 flex justify-center transition-all duration-250 ease-out transform pointer-events-none ${
+          isScrolled && !mobileMenuOpen
             ? 'translate-y-0 opacity-100'
             : '-translate-y-full opacity-0'
         }`}
@@ -734,6 +759,7 @@ export default function Header({
                   src={logoUrl}
                   alt={storeName}
                   className="h-[34px] w-auto max-h-[36px] max-w-[130px] sm:max-w-[160px] object-contain transition-transform group-hover:scale-102"
+                  style={{ maxHeight: '36px', maxWidth: '160px', objectFit: 'contain' }}
                 />
               ) : (
                 <div className="h-[34px] w-20 sm:w-24 bg-slate-100 rounded-lg animate-pulse" />
@@ -940,15 +966,16 @@ export default function Header({
 
       {/* MOBILE MENU DRAWER */}
       {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
+        <div className="fixed inset-0 z-[100] lg:hidden overscroll-none">
           {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity overscroll-none touch-none"
             onClick={() => setMobileMenuOpen(false)}
+            onTouchMove={(e) => e.preventDefault()}
           />
 
           {/* Drawer Content */}
-          <div className="fixed inset-y-0 left-0 max-w-xs w-full bg-white shadow-2xl z-10 flex flex-col justify-between animate-slide-in-right">
+          <div className="fixed inset-y-0 left-0 max-w-xs w-full bg-white shadow-2xl z-10 flex flex-col justify-between animate-slide-in-right overscroll-contain mobile-drawer-scrollable overflow-y-auto">
             <div>
               <div className="p-4 border-b border-slate-100 flex items-center justify-between">
                 <Link href="/" onClick={() => setMobileMenuOpen(false)} className="flex items-center">
@@ -972,14 +999,14 @@ export default function Header({
               </div>
 
               {/* Navigation Links inside Mobile Drawer */}
-              <div className="p-3 border-b border-slate-100 space-y-1 text-xs font-bold text-slate-700">
+              <div className="p-3 space-y-1 text-xs font-bold text-slate-700">
                 <Link
                   href="/"
                   onClick={() => {
                     handleSelectCategory(null);
                     setMobileMenuOpen(false);
                   }}
-                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-emerald-50 hover:text-emerald-800"
+                  className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-emerald-50 hover:text-emerald-800"
                 >
                   <Home className="w-4 h-4 text-emerald-700" />
                   <span>Accueil</span>
@@ -988,7 +1015,7 @@ export default function Header({
                 <Link
                   href="/products"
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors ${
+                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-colors ${
                     activePage === 'products'
                       ? 'bg-emerald-50 text-emerald-800 font-extrabold'
                       : 'text-slate-700 hover:bg-emerald-50 hover:text-emerald-800'
@@ -1001,7 +1028,7 @@ export default function Header({
                 <a
                   href="/#marques"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-emerald-50 hover:text-emerald-800 text-slate-700"
+                  className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-emerald-50 hover:text-emerald-800 text-slate-700"
                 >
                   <ShieldCheck className="w-4 h-4 text-slate-400" />
                   <span>Nos Marques</span>
@@ -1010,7 +1037,7 @@ export default function Header({
                 <Link
                   href="/about"
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors ${
+                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-colors ${
                     activePage === 'about'
                       ? 'bg-emerald-50 text-emerald-800 font-extrabold'
                       : 'text-slate-700 hover:bg-emerald-50 hover:text-emerald-800'
@@ -1023,7 +1050,7 @@ export default function Header({
                 <Link
                   href="/blog"
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors ${
+                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-colors ${
                     activePage === 'blog'
                       ? 'bg-emerald-50 text-emerald-800 font-extrabold'
                       : 'text-slate-700 hover:bg-emerald-50 hover:text-emerald-800'
@@ -1036,7 +1063,7 @@ export default function Header({
                 <Link
                   href="/contact"
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors ${
+                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-colors ${
                     activePage === 'contact'
                       ? 'bg-emerald-50 text-emerald-800 font-extrabold'
                       : 'text-slate-700 hover:bg-emerald-50 hover:text-emerald-800'
@@ -1049,7 +1076,7 @@ export default function Header({
                 <Link
                   href="/track"
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors ${
+                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-colors ${
                     activePage === 'track'
                       ? 'bg-emerald-50 text-emerald-800 font-extrabold'
                       : 'text-slate-700 hover:bg-emerald-50 hover:text-emerald-800'
@@ -1062,7 +1089,7 @@ export default function Header({
                 <Link
                   href="/wishlist"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-between px-3 py-2 rounded-xl transition-colors text-slate-700 hover:bg-emerald-50 hover:text-emerald-800"
+                  className="flex items-center justify-between px-3 py-2.5 rounded-xl transition-colors text-slate-700 hover:bg-emerald-50 hover:text-emerald-800"
                 >
                   <div className="flex items-center gap-2.5">
                     <Heart className="w-4 h-4 text-rose-600 fill-rose-600" />
@@ -1074,52 +1101,6 @@ export default function Header({
                     </span>
                   )}
                 </Link>
-              </div>
-
-              {/* Mobile Categories List */}
-              <div className="p-3 space-y-1 overflow-y-auto max-h-[calc(100vh-320px)]">
-                <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 px-3 block mb-1">
-                  Catégories
-                </span>
-
-                <button
-                  type="button"
-                  onClick={() => handleSelectCategory(null)}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-colors ${
-                    selectedCategory === null
-                      ? 'bg-emerald-50 text-emerald-800'
-                      : 'text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Sparkles className="w-4 h-4 text-emerald-700" />
-                    <span>Tous les Produits</span>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-slate-400" />
-                </button>
-
-                {validSearchCategories.map((cat) => (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => handleSelectCategory(cat.id)}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-colors ${
-                      selectedCategory === cat.id
-                        ? 'bg-emerald-50 text-emerald-800'
-                        : 'text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      {getCategoryIcon(cat.name)}
-                      <span>{cat.name}</span>
-                    </div>
-                    {cat.products_count !== undefined && (
-                      <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-                        {cat.products_count}
-                      </span>
-                    )}
-                  </button>
-                ))}
               </div>
             </div>
 

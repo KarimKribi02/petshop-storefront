@@ -136,40 +136,6 @@ export default function ContactPage() {
   return (
     <div className="min-h-screen flex flex-col bg-[#fafaf8] text-slate-900 selection:bg-emerald-200 selection:text-emerald-950 font-sans">
 
-      {/* ── 1. TOP ANNOUNCEMENT BAR ────────────────────────────────────────── */}
-      <div className="bg-[#14532d] text-white py-2 px-4 text-xs font-semibold">
-        <div className="max-w-7xl mx-auto flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-6 mx-auto md:mx-0 flex-wrap justify-center text-[11px] sm:text-xs">
-            <span className="flex items-center gap-1.5">
-              <Truck className="w-3.5 h-3.5 text-emerald-300" />
-              <span>Livraison gratuite dès 499 DH</span>
-            </span>
-            <span className="hidden sm:inline text-emerald-700/60">•</span>
-            <span className="flex items-center gap-1.5">
-              <Leaf className="w-3.5 h-3.5 text-emerald-300" />
-              <span>100% Ingrédients Naturels</span>
-            </span>
-            <span className="hidden sm:inline text-emerald-700/60">•</span>
-            <span className="flex items-center gap-1.5">
-              <Heart className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-              <span>Adopté par 50 000+ Animaux</span>
-            </span>
-          </div>
-
-          <div className="hidden md:flex items-center gap-4 text-[11px]">
-            <a
-              href={`tel:${cleanPhone}`}
-              className="flex items-center gap-1.5 hover:text-emerald-200 transition-colors"
-            >
-              <Phone className="w-3.5 h-3.5 text-emerald-300" />
-              <span>{storePhone}</span>
-            </a>
-            <span className="text-emerald-700/60">|</span>
-            <span className="font-bold text-emerald-200">FR</span>
-          </div>
-        </div>
-      </div>
-
       {/* ── 2. STICKY HEADER ──────────────────────────────────────────────── */}
       <Header
         categories={categories}

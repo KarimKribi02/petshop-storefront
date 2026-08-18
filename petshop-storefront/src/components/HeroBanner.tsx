@@ -23,7 +23,7 @@ export default function HeroBanner({
   onSelectCategory 
 }: HeroBannerProps) {
   return (
-    <div className="my-3 mx-4 sm:mx-6 lg:mx-8 space-y-4">
+    <div className="my-3 mx-3 sm:mx-6 lg:mx-8 space-y-4 max-w-[1500px] xl:mx-auto">
       
       {/* ── 1. MAIN HERO BANNER CARD ────────────────────────────────────── */}
       <div 
@@ -36,39 +36,39 @@ export default function HeroBanner({
         }}
       >
         {/* Soft light overlay on left side for text readability on smaller screens */}
-        <div className="absolute inset-0 bg-gradient-to-r from-[#f7f4ef]/95 via-[#f7f4ef]/80 to-transparent lg:via-[#f7f4ef]/60 lg:to-transparent pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#f7f4ef]/95 via-[#f7f4ef]/85 to-transparent sm:via-[#f7f4ef]/80 lg:via-[#f7f4ef]/60 pointer-events-none" />
 
         {/* Content Container */}
-        <div className="relative max-w-7xl mx-auto px-6 sm:px-12 lg:px-16 py-12 sm:py-16 lg:py-20 min-h-[460px] sm:min-h-[520px] flex items-center">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-12 lg:px-16 py-10 sm:py-16 lg:py-20 min-h-[420px] sm:min-h-[520px] flex items-center">
           
-          <div className="max-w-xl space-y-6">
+          <div className="max-w-xl space-y-5 sm:space-y-6">
             
             {/* Top Leaf Badge */}
             <div className="inline-flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-emerald-100/90 text-emerald-800 flex items-center justify-center">
+              <span className="w-5 h-5 rounded-full bg-emerald-100/90 text-emerald-800 flex items-center justify-center shrink-0">
                 <Leaf className="w-3 h-3 text-emerald-800" />
               </span>
-              <span className="text-[11px] sm:text-xs font-black tracking-widest text-[#14532d] uppercase">
+              <span className="text-[10px] sm:text-xs font-black tracking-widest text-[#14532d] uppercase">
                 PREMIUM NATURAL PET FOOD
               </span>
             </div>
 
             {/* Main Headline */}
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-slate-900 leading-[1.08] tracking-tight">
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 leading-[1.1] tracking-tight">
               Better Food, <br />
               Better <span className="font-serif italic font-normal text-[#1e3a24]">Life.</span>
             </h1>
 
             {/* Subtitle / Description */}
-            <p className="text-sm sm:text-base text-slate-700 leading-relaxed font-medium max-w-md">
+            <p className="text-xs sm:text-base text-slate-700 leading-relaxed font-medium max-w-md">
               Premium nutrition made with real ingredients to support your pet&apos;s health, energy and happiness every single day.
             </p>
 
             {/* Single Main CTA Button */}
-            <div className="pt-2">
+            <div className="pt-1 sm:pt-2">
               <Link
                 href="/products"
-                className="inline-flex items-center gap-3 px-8 py-4 bg-[#14532d] hover:bg-[#0f3e21] active:scale-98 text-white font-bold text-sm sm:text-base rounded-2xl shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer group"
+                className="inline-flex items-center justify-center gap-3 w-full sm:w-auto px-7 sm:px-8 py-3.5 sm:py-4 bg-[#14532d] hover:bg-[#0f3e21] active:scale-98 text-white font-bold text-xs sm:text-base rounded-2xl shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer group"
               >
                 <span>Découvrir nos produits</span>
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-200" />
@@ -94,7 +94,7 @@ export default function HeroBanner({
       </div>
 
       {/* ── 2. TRUST BADGES ROW (Under Hero) ─────────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 pt-1">
+      <div className="grid grid-cols-1 min-[440px]:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 pt-1">
         
         {/* Badge 1: 100% Natural */}
         <div className="bg-white rounded-2xl border border-slate-200/70 p-3.5 sm:p-4 flex items-center gap-3 shadow-2xs">

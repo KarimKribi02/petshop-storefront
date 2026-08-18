@@ -268,34 +268,6 @@ function ProductsContent() {
   return (
     <div style={{ minHeight: '100vh', background: '#fafaf8', display: 'flex', flexDirection: 'column' }}>
 
-      {/* ── Announcement bar ──────────────────────────────────────────────── */}
-      <div style={{ background: '#1a4731', color: '#fff', padding: '9px 16px' }}>
-        <div style={{
-          maxWidth: '1280px', margin: '0 auto',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          flexWrap: 'wrap', gap: '24px',
-        }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600 }}>
-            <Truck style={{ width: 13, height: 13, color: '#6ee7b7' }} />
-            Livraison gratuite dès 499&nbsp;DH
-          </span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600 }}>
-            <Leaf style={{ width: 13, height: 13, color: '#6ee7b7' }} />
-            100&nbsp;% Ingrédients naturels
-          </span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600 }}>
-            <Star style={{ width: 13, height: 13, color: '#fbbf24', fill: '#fbbf24' }} />
-            Adoré par 50&nbsp;000+ animaux
-          </span>
-          {settings?.phone_number && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600 }}>
-              <Phone style={{ width: 13, height: 13, color: '#6ee7b7' }} />
-              {settings.phone_number}
-            </span>
-          )}
-        </div>
-      </div>
-
       {/* ── Header ────────────────────────────────────────────────────────── */}
       <Header
         categories={validCategories}
@@ -332,8 +304,9 @@ function ProductsContent() {
           <div style={{ display: 'flex', gap: '28px', alignItems: 'flex-start' }}>
 
             {/* ── Desktop Sidebar (Sticky on scroll) ───────────────────────── */}
+            {/* ── Sidebar (desktop) ─────────────────────────────────────── */}
             <div
-              className="products-sidebar-desktop shrink-0"
+              className="hidden lg:block shrink-0"
               style={{
                 width: '270px',
                 position: 'sticky',
@@ -370,17 +343,17 @@ function ProductsContent() {
               }}>
                 {/* Mobile filter button */}
                 <button
+                  type="button"
                   onClick={() => setFilterDrawerOpen(true)}
-                  className="mobile-filter-btn"
-                  style={{
-                    display: 'none', alignItems: 'center', gap: '6px',
-                    padding: '8px 14px', borderRadius: '10px',
-                    border: '1.5px solid #e5e7eb', background: '#fff',
-                    fontSize: '13px', fontWeight: 700, color: '#1c1917', cursor: 'pointer',
-                  }}
+                  className="flex lg:hidden items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 cursor-pointer shadow-2xs hover:bg-slate-50 transition"
                 >
-                  <SlidersHorizontal style={{ width: 14, height: 14 }} />
-                  Filtres {activeChips.length > 0 && <span style={{ background: '#1a4731', color: '#fff', borderRadius: '20px', padding: '1px 7px', fontSize: '10px' }}>{activeChips.length}</span>}
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-emerald-800" />
+                  <span>Filtres</span>
+                  {activeChips.length > 0 && (
+                    <span className="bg-[#14532d] text-white rounded-full px-2 py-0.5 text-[10px] font-black">
+                      {activeChips.length}
+                    </span>
+                  )}
                 </button>
 
                 {/* Spacer */}
