@@ -1,0 +1,50 @@
+name: Deploy Storefront to VPS
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy Storefront to Server via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          timeout: 60s
+          command_timeout: 15m
+          script: |
+            echo "=== 1. UPDATING GIT REPOSITORY ==="
+            cd /var/www/petshop/petshop-storefront
+            git fetch --all
+            git reset --hard origin/main
+            
+            echo "=== 2. NAVIGATING TO APP ROOT ==="
+            if [ -d "petshop-storefront" ]; then
+              cd petshop-storefront
+            fi
+            pwd
+            
+            echo "=== 3. INSTALLING DEPENDENCIES & BUILDING NEXT.JS ==="
+            npm install
+            npm run build
+            
+            echo "=== 4. RESTARTING PM2 PROCESS ==="
+            if command -v pm2 &> /dev/null; then
+              pm2 restart petshop-storefront 2>/dev/null || \
+              pm2 restart storefront 2>/dev/null || \
+              pm2 restart animalmarketonly 2>/dev/null || \
+              pm2 start npm --name "petshop-storefront" -- run start -- -p 3000
+              
+              pm2 save 2>/dev/null || true
+              pm2 status
+            fi
+            
+            echo "=== 5. RELOADING NGINX ==="
+            sudo systemctl reload nginx 2>/dev/null || sudo service nginx reload 2>/dev/null || true
+            
+            echo "=== STOREFRONT DEPLOYMENT COMPLETED SUCCESSFULLY ==="
