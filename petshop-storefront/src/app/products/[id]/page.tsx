@@ -39,7 +39,9 @@ import {
   Layers,
   MapPin,
   Building2,
-  ChevronDown
+  ChevronDown,
+  AlertCircle,
+  Store
 } from 'lucide-react';
 
 interface ReviewItem {
@@ -78,6 +80,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const [quantity, setQuantity] = useState<number>(1);
   const [selectedVariantWeight, setSelectedVariantWeight] = useState<number>(2); // 2kg, 7kg, 12kg
   const [selectedStore, setSelectedStore] = useState<StoreStock | null>(null);
+  const [storeValidationError, setStoreValidationError] = useState<string | null>(null);
+  const [isStoreModalOpen, setIsStoreModalOpen] = useState<boolean>(false);
   const [isAddedRecently, setIsAddedRecently] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'description' | 'composition' | 'avis' | 'questions'>('description');
 
@@ -495,11 +499,37 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     ];
   }, [product]);
 
-  // Add to cart handler
-  const handleAddToCart = () => {
+  // Add to cart handler with Point de vente & Disponibilité validation
+  const handleAddToCart = (overrideStore?: StoreStock) => {
     if (!product || isOutOfStock) return;
 
-    const storeToUse = selectedStore || availableStoresStock[0] || { store_id: 1, store_name: 'Store A - Gueliz' };
+    const storeToUse = overrideStore || selectedStore || availableStoresStock[0];
+
+    // 1. Validation: Ensure a store is selected
+    if (!storeToUse) {
+      setStoreValidationError('Veuillez sélectionner un point de vente pour vérifier la disponibilité.');
+      const el = document.getElementById('store-selector-section');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    // 2. Validation: Ensure the store has stock available
+    if (storeToUse.quantity <= 0) {
+      setStoreValidationError(`Le produit est actuellement en rupture de stock au magasin "${storeToUse.store_name}". Veuillez sélectionner un autre point de vente.`);
+      const el = document.getElementById('store-selector-section');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    // 3. Validation: Ensure requested quantity does not exceed store stock
+    const requestedQty = isWeightProduct ? selectedVariantWeight : quantity;
+    if (!isWeightProduct && quantity > storeToUse.quantity) {
+      setStoreValidationError(`Stock insuffisant : seulement ${storeToUse.quantity} unité(s) disponible(s) au magasin "${storeToUse.store_name}".`);
+      return;
+    }
+
+    // Clear any validation errors
+    setStoreValidationError(null);
 
     const payload: Product = {
       ...product,
@@ -508,11 +538,12 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
     addItem(
       payload,
-      isWeightProduct ? selectedVariantWeight : quantity,
+      requestedQty,
       { store_id: storeToUse.store_id, store_name: storeToUse.store_name }
     );
 
     setIsAddedRecently(true);
+    setIsStoreModalOpen(false);
     openDrawer();
 
     setTimeout(() => {
@@ -840,46 +871,117 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                 </div>
               ) : null}
 
-              {/* Store Selector (if multiple stores available) */}
-              {availableStoresStock.length > 1 && (
-                <div className="space-y-2 pt-1">
-                  <span className="text-xs font-bold text-slate-700 block">
-                    Point de vente & Disponibilité :
-                  </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {availableStoresStock.map((s) => {
-                      const isSelected = selectedStore?.store_id === s.store_id;
-                      const hasStock = s.quantity > 0;
-                      return (
-                        <button
-                          key={s.store_id}
-                          type="button"
-                          disabled={!hasStock}
-                          onClick={() => setSelectedStore(s)}
-                          className={`p-3 rounded-2xl text-left border transition-all cursor-pointer ${
-                            !hasStock
-                              ? 'opacity-50 cursor-not-allowed bg-slate-50 border-slate-200'
-                              : isSelected
-                              ? 'bg-emerald-50 border-[#14532d] text-[#14532d] ring-1 ring-[#14532d]/20'
-                              : 'bg-white border-slate-200 hover:border-slate-300'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between text-xs font-bold text-slate-900">
-                            <span>{s.store_name}</span>
-                            {hasStock ? (
-                              <span className="text-[11px] font-black text-emerald-800">
-                                {s.quantity} en stock
-                              </span>
-                            ) : (
-                              <span className="text-[11px] font-bold text-rose-600">Épuisé</span>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })}
+              {/* ── POINT DE VENTE & DISPONIBILITÉ VALIDATION BLOCK ────────── */}
+              <div id="store-selector-section" className="space-y-3 pt-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-xl bg-emerald-100/80 text-[#14532d] flex items-center justify-center">
+                      <Building2 className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-black text-slate-900 block">
+                        Point de vente & Disponibilité
+                      </span>
+                      <span className="text-[11px] text-slate-500">
+                        Sélectionnez votre magasin pour vérifier le stock
+                      </span>
+                    </div>
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsStoreModalOpen(true)}
+                    className="text-[11px] font-bold text-emerald-800 hover:text-emerald-950 underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <MapPin className="w-3 h-3" />
+                    <span>Détails magasins</span>
+                  </button>
                 </div>
-              )}
+
+                {/* Validation Error Alert */}
+                {storeValidationError && (
+                  <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 flex items-start gap-2.5 text-xs font-semibold">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    <span>{storeValidationError}</span>
+                  </div>
+                )}
+
+                {/* Store Cards Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {availableStoresStock.map((s) => {
+                    const isSelected = selectedStore?.store_id === s.store_id;
+                    const hasStock = s.quantity > 0;
+                    const isLowStock = s.quantity > 0 && s.quantity <= 5;
+
+                    return (
+                      <button
+                        key={s.store_id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedStore(s);
+                          setStoreValidationError(null);
+                        }}
+                        className={`p-3.5 rounded-2xl text-left border transition-all relative cursor-pointer ${
+                          isSelected
+                            ? 'bg-emerald-50/80 border-[#14532d] text-[#14532d] ring-2 ring-[#14532d]/20 shadow-xs'
+                            : hasStock
+                            ? 'bg-white border-slate-200 hover:border-emerald-300 hover:bg-slate-50/50'
+                            : 'bg-slate-50 border-slate-200 opacity-60'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-1.5 font-black text-xs text-slate-900">
+                            <Store className="w-3.5 h-3.5 text-slate-500" />
+                            <span>{s.store_name}</span>
+                          </div>
+                          {isSelected && (
+                            <span className="w-4 h-4 rounded-full bg-[#14532d] text-white flex items-center justify-center text-[10px]">
+                              <Check className="w-2.5 h-2.5 stroke-[3]" />
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px]">
+                          {hasStock ? (
+                            <span
+                              className={`inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded-full ${
+                                isLowStock
+                                  ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                                  : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                              }`}
+                            >
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  isLowStock ? 'bg-amber-500 animate-pulse' : 'bg-emerald-600'
+                                }`}
+                              />
+                              {isLowStock
+                                ? `Stock limité : ${s.quantity} restant(s)`
+                                : `En stock : ${s.quantity} dispo`}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                              Rupture de stock
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {selectedStore && (
+                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>
+                      Retrait & expédition validés depuis :{' '}
+                      <strong className="text-slate-900">{selectedStore.store_name}</strong> (
+                      {selectedStore.quantity} unités disponibles)
+                    </span>
+                  </div>
+                )}
+              </div>
 
               {/* ── PRICE SECTION ─────────────────────────────────────────── */}
               <div className="pt-2">
@@ -910,7 +1012,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                   <div className="flex items-center justify-between bg-white border border-slate-200 rounded-2xl p-1.5 shadow-2xs shrink-0 w-full sm:w-36">
                     <button
                       type="button"
-                      onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                      onClick={() => {
+                        setQuantity((q) => Math.max(1, q - 1));
+                        setStoreValidationError(null);
+                      }}
                       disabled={quantity <= 1 || isOutOfStock}
                       className="w-10 h-10 rounded-xl bg-slate-50 hover:bg-slate-100 disabled:opacity-40 text-slate-800 flex items-center justify-center font-bold transition-colors cursor-pointer"
                       aria-label="Diminuer la quantité"
@@ -924,8 +1029,16 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
                     <button
                       type="button"
-                      onClick={() => setQuantity((q) => q + 1)}
-                      disabled={isOutOfStock}
+                      onClick={() => {
+                        const maxStock = selectedStore ? selectedStore.quantity : (product.stock_quantity ?? 99);
+                        if (quantity >= maxStock) {
+                          setStoreValidationError(`Stock maximum atteint (${maxStock} disponible(s) au magasin sélectionné).`);
+                          return;
+                        }
+                        setQuantity((q) => q + 1);
+                        setStoreValidationError(null);
+                      }}
+                      disabled={isOutOfStock || (selectedStore ? quantity >= selectedStore.quantity : false)}
                       className="w-10 h-10 rounded-xl bg-slate-50 hover:bg-slate-100 disabled:opacity-40 text-slate-800 flex items-center justify-center font-bold transition-colors cursor-pointer"
                       aria-label="Augmenter la quantité"
                     >
@@ -937,10 +1050,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                 {/* Primary Add To Cart Button */}
                 <button
                   type="button"
-                  onClick={handleAddToCart}
-                  disabled={isOutOfStock}
-                  className={`flex-1 py-4 px-6 rounded-2xl font-black text-sm uppercase tracking-wider flex items-center justify-center gap-3 transition-all cursor-pointer shadow-lg shadow-emerald-950/15 ${
-                    isOutOfStock
+                  onClick={() => handleAddToCart()}
+                  disabled={Boolean(isOutOfStock || (selectedStore ? selectedStore.quantity <= 0 : false))}
+                  className={`flex-1 py-4 px-6 rounded-2xl font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-3 transition-all cursor-pointer shadow-lg shadow-emerald-950/15 ${
+                    isOutOfStock || (selectedStore ? selectedStore.quantity <= 0 : false)
                       ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
                       : isAddedRecently
                       ? 'bg-[#14532d] text-white ring-2 ring-emerald-400'
@@ -952,10 +1065,15 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                       <Check className="w-5 h-5 stroke-[3] text-emerald-300" />
                       <span>Ajouté au panier !</span>
                     </>
+                  ) : selectedStore && selectedStore.quantity <= 0 ? (
+                    <span>Épuisé à {selectedStore.store_name}</span>
                   ) : (
                     <>
                       <ShoppingBag className="w-5 h-5" />
-                      <span>Ajouter au panier • {totalPrice.toFixed(2)} DH</span>
+                      <span>
+                        Ajouter au panier • {totalPrice.toFixed(2)} DH
+                        {selectedStore ? ` (${selectedStore.store_name})` : ''}
+                      </span>
                     </>
                   )}
                 </button>
@@ -1614,6 +1732,141 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         isOpen={!!quickViewProduct}
         onClose={() => setQuickViewProduct(null)}
       />
+
+      {/* ── MODAL VALIDATION POINT DE VENTE & DISPONIBILITÉ ──────────────── */}
+      {isStoreModalOpen && product && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            onClick={() => setIsStoreModalOpen(false)}
+          />
+          <div className="flex min-h-full items-center justify-center p-4 text-center">
+            <div className="relative transform overflow-hidden rounded-3xl bg-white text-left shadow-2xl transition-all w-full max-w-lg border border-slate-100 p-6 sm:p-7">
+              <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-2xl bg-emerald-100 text-[#14532d] flex items-center justify-center">
+                    <Building2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-900">
+                      Valider Point de Vente & Disponibilité
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Vérifiez les stocks disponibles en temps réel dans nos magasins
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsStoreModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-sm font-bold cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="py-4 space-y-3">
+                <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
+                  <div>
+                    <span className="text-slate-500 block">Produit :</span>
+                    <strong className="text-slate-900 font-black">{product.title}</strong>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-slate-500 block">Prix :</span>
+                    <strong className="text-[#14532d] font-black text-sm">{totalPrice.toFixed(2)} DH</strong>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <span className="text-xs font-bold text-slate-700 block">
+                    Choisissez votre magasin de référence :
+                  </span>
+                  {availableStoresStock.map((st) => {
+                    const isSelected = selectedStore?.store_id === st.store_id;
+                    const hasStock = st.quantity > 0;
+                    const isLowStock = st.quantity > 0 && st.quantity <= 5;
+
+                    return (
+                      <div
+                        key={st.store_id}
+                        onClick={() => {
+                          if (hasStock) {
+                            setSelectedStore(st);
+                            setStoreValidationError(null);
+                          }
+                        }}
+                        className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between cursor-pointer ${
+                          isSelected
+                            ? 'bg-emerald-50 border-[#14532d] ring-2 ring-[#14532d]/20 text-[#14532d]'
+                            : hasStock
+                            ? 'bg-white border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                            : 'bg-slate-50 border-slate-200 opacity-50 cursor-not-allowed'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                              isSelected
+                                ? 'border-[#14532d] bg-[#14532d] text-white'
+                                : 'border-slate-300'
+                            }`}
+                          >
+                            {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                          </div>
+                          <div>
+                            <div className="text-xs font-bold text-slate-900">{st.store_name}</div>
+                            <div className="text-[11px] text-slate-500">
+                              {hasStock
+                                ? 'Retrait en magasin sous 2h ou livraison express'
+                                : 'Actuellement indisponible dans ce magasin'}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          {hasStock ? (
+                            <span
+                              className={`text-xs font-bold px-2.5 py-1 rounded-full border ${
+                                isLowStock
+                                  ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                  : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                              }`}
+                            >
+                              {st.quantity} en stock
+                            </span>
+                          ) : (
+                            <span className="text-xs font-bold text-rose-600 bg-rose-50 px-2.5 py-1 rounded-full border border-rose-200">
+                              Épuisé
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsStoreModalOpen(false)}
+                  className="flex-1 py-3 px-4 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  disabled={!selectedStore || selectedStore.quantity <= 0}
+                  onClick={() => handleAddToCart(selectedStore || undefined)}
+                  className="flex-2 py-3 px-4 rounded-2xl bg-[#14532d] hover:bg-[#0f3e21] disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-black uppercase tracking-wider transition-colors cursor-pointer shadow-md"
+                >
+                  Valider & Ajouter au panier
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
