@@ -123,7 +123,9 @@ export default function CartDrawer() {
             {items.length > 0 ? (
               items.map((item) => {
                 const isWeightProduct =
-                  item.product.unit_type === 'kg' || item.product.unit_type === 'g';
+                  item.product.unit_type === 'WEIGHT' ||
+                  item.product.unit_type === 'kg' ||
+                  item.product.unit_type === 'g';
                 const unitPrice =
                   parseFloat(String(item.product.price_sell)) || 0;
                 const itemTotal = unitPrice * item.quantity;
@@ -175,7 +177,7 @@ export default function CartDrawer() {
                       <div className="text-[11px] text-slate-400 mt-0.5">
                         {isWeightProduct ? (
                           <span>
-                            {unitPrice.toFixed(2)} DH / Kg
+                            {unitPrice.toFixed(2)} DH / Kg (soit {(unitPrice / 10).toFixed(2)} DH / 100g)
                           </span>
                         ) : (
                           <span>
@@ -193,7 +195,7 @@ export default function CartDrawer() {
                               updateQuantity(
                                 item.product.barcode || item.product.id,
                                 isWeightProduct
-                                  ? Math.max(0.5, item.quantity - 0.5)
+                                  ? Math.max(0.1, Number((item.quantity - 0.25).toFixed(2)))
                                   : item.quantity - 1
                               )
                             }
@@ -201,9 +203,11 @@ export default function CartDrawer() {
                           >
                             <Minus className="w-3 h-3" />
                           </button>
-                          <span className="px-2.5 text-xs font-black text-slate-900 min-w-[2.2rem] text-center">
+                          <span className="px-2.5 text-xs font-black text-slate-900 min-w-[2.5rem] text-center">
                             {isWeightProduct
-                              ? `${item.quantity} kg`
+                              ? item.quantity >= 1
+                                ? `${item.quantity} kg`
+                                : `${Math.round(item.quantity * 1000)}g`
                               : item.quantity}
                           </span>
                           <button
@@ -212,7 +216,7 @@ export default function CartDrawer() {
                               updateQuantity(
                                 item.product.barcode || item.product.id,
                                 isWeightProduct
-                                  ? item.quantity + 0.5
+                                  ? Number((item.quantity + 0.25).toFixed(2))
                                   : item.quantity + 1
                               )
                             }

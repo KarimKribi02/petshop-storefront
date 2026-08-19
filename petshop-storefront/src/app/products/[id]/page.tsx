@@ -41,7 +41,8 @@ import {
   Building2,
   ChevronDown,
   AlertCircle,
-  Store
+  Store,
+  Scale
 } from 'lucide-react';
 
 interface ReviewItem {
@@ -78,7 +79,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
   // Purchasing States
   const [quantity, setQuantity] = useState<number>(1);
-  const [selectedVariantWeight, setSelectedVariantWeight] = useState<number>(2); // 2kg, 7kg, 12kg
+  const [weightInGrams, setWeightInGrams] = useState<number>(1000); // 100g, 250g, 500g, 1000g...
   const [selectedStore, setSelectedStore] = useState<StoreStock | null>(null);
   const [storeValidationError, setStoreValidationError] = useState<string | null>(null);
   const [isStoreModalOpen, setIsStoreModalOpen] = useState<boolean>(false);
@@ -116,11 +117,13 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
       setIsNotFound(false);
 
       try {
-        // Parallel requests for header, settings, and general catalog
-        const [catRes, settingsRes, productsRes] = await Promise.allSettled([
+        // 1. Fetch Categories & Settings in parallel with Targeted Product
+        const rawParam = decodeURIComponent(productIdOrSlug || '');
+
+        const [catRes, settingsRes, singleProdRes] = await Promise.allSettled([
           apiClient.get('/shop/categories'),
           apiClient.get('/settings'),
-          apiClient.get('/shop/products'),
+          apiClient.get(`/shop/products/${rawParam}`),
         ]);
 
         if (catRes.status === 'fulfilled' && catRes.value.data?.data) {
@@ -130,72 +133,57 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
           if (isMounted) setSettings(settingsRes.value.data.data);
         }
 
-        const allProducts: Product[] =
-          productsRes.status === 'fulfilled'
-            ? productsRes.value.data?.data?.data || productsRes.value.data?.data || []
-            : [];
-
-        // Determine if URL param is ID or barcode or slug
-        const rawParam = decodeURIComponent(productIdOrSlug || '');
-        const numericId = parseInt(rawParam, 10);
-
         let targetProduct: Product | null = null;
 
-        // Try direct lookup in loaded products list
-        if (!isNaN(numericId) && numericId > 0) {
-          targetProduct = allProducts.find((p) => p.id === numericId) || null;
+        if (singleProdRes.status === 'fulfilled' && singleProdRes.value.data?.data) {
+          targetProduct = singleProdRes.value.data.data;
         }
 
+        // Fallback: If not found by direct ID/slug endpoint, query search with limit
         if (!targetProduct) {
-          targetProduct =
-            allProducts.find(
-              (p) =>
-                p.barcode === rawParam ||
-                p.title.toLowerCase().replace(/[^a-z0-9]+/g, '-') === rawParam.toLowerCase() ||
-                p.title.toLowerCase().includes(rawParam.toLowerCase())
-            ) || null;
-        }
-
-        // If not found in local list, attempt single product backend query if API supports it
-        if (!targetProduct && !isNaN(numericId)) {
           try {
-            const singleRes = await apiClient.get(`/shop/products/${numericId}`);
-            if (singleRes.data?.data) {
-              targetProduct = singleRes.data.data;
-            }
+            const searchRes = await apiClient.get('/shop/products', {
+              params: { search: rawParam, per_page: 8 },
+            });
+            const searchList: Product[] = searchRes.data?.data?.data || searchRes.data?.data || [];
+            targetProduct = searchList.find((p) => String(p.id) === rawParam || p.barcode === rawParam) || searchList[0] || null;
           } catch (e) {
-            // Ignore if endpoint doesn't exist
+            console.warn('Fallback search query error:', e);
           }
         }
 
         if (!targetProduct) {
-          if (allProducts.length > 0) {
-            // Fallback to first product if non-existent to avoid completely broken UX
-            targetProduct = allProducts[0];
-          } else {
-            if (isMounted) {
-              setIsNotFound(true);
-              setIsLoading(false);
-            }
-            return;
+          if (isMounted) {
+            setIsNotFound(true);
+            setIsLoading(false);
           }
+          return;
         }
 
         if (isMounted) {
           setProduct(targetProduct);
 
-          // Find related products (same category or general)
-          const related = allProducts
-            .filter((p) => p.id !== targetProduct?.id)
-            .filter((p) => !targetProduct?.category_id || p.category_id === targetProduct.category_id || true)
-            .slice(0, 4);
-
-          setRelatedProducts(related.length > 0 ? related : allProducts.slice(0, 4));
+          // Fetch only 4 related products (lightweight query)
+          try {
+            const relRes = await apiClient.get('/shop/products', {
+              params: {
+                category_id: targetProduct.category_id || undefined,
+                per_page: 4,
+              },
+            });
+            const relList: Product[] = (relRes.data?.data?.data || relRes.data?.data || []).filter(
+              (p: Product) => p.id !== targetProduct?.id
+            );
+            setRelatedProducts(relList);
+          } catch (e) {
+            setRelatedProducts([]);
+          }
 
           // Set default store
-          const availableStores = targetProduct.stores_stock && targetProduct.stores_stock.length > 0
-            ? targetProduct.stores_stock
-            : DEFAULT_STORES_STOCK;
+          const availableStores =
+            targetProduct.stores_stock && targetProduct.stores_stock.length > 0
+              ? targetProduct.stores_stock
+              : DEFAULT_STORES_STOCK;
           const initialStore = availableStores.find((s) => s.quantity > 0) || availableStores[0];
           setSelectedStore(initialStore);
 
@@ -476,15 +464,20 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
   // Price Calculation
   const isOutOfStock = (product?.stock_quantity ?? 0) <= 0;
-  const isWeightProduct = product?.unit_type === 'kg' || product?.unit_type === 'g';
+  const isWeightProduct = product?.unit_type === 'WEIGHT' || product?.unit_type === 'kg' || product?.unit_type === 'g';
   const basePrice = parseFloat(String(product?.price_sell || 0)) || 0;
   const oldPrice = product?.price_buy && parseFloat(String(product.price_buy)) > basePrice 
     ? parseFloat(String(product.price_buy)) 
     : (basePrice > 0 ? parseFloat((basePrice * 1.15).toFixed(2)) : 0);
 
-  const effectiveUnitPrice = isWeightProduct ? basePrice * (selectedVariantWeight / 2) : basePrice;
-  const totalPrice = effectiveUnitPrice * (isWeightProduct ? 1 : quantity);
-  const pricePerKg = isWeightProduct ? (effectiveUnitPrice / selectedVariantWeight).toFixed(2) : (basePrice / 2).toFixed(2);
+  // Live Weight & Price Calculations: 1kg = basePrice, 100g = basePrice / 10
+  const currentWeightGrams = Math.max(10, weightInGrams || 1000);
+  const weightInKg = currentWeightGrams / 1000;
+  const totalPrice = isWeightProduct
+    ? (basePrice * currentWeightGrams) / 1000
+    : basePrice * quantity;
+  const pricePerKg = basePrice.toFixed(2);
+  const pricePer100g = (basePrice / 10).toFixed(2);
 
   // Store handling
   const availableStoresStock: StoreStock[] = useMemo(() => {
@@ -499,7 +492,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     ];
   }, [product]);
 
-  // Add to cart handler with Point de vente & Disponibilité validation
+  // Add to cart handler with Point de vente & Disponibilité & Weight validation
   const handleAddToCart = (overrideStore?: StoreStock) => {
     if (!product || isOutOfStock) return;
 
@@ -521,10 +514,14 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
       return;
     }
 
-    // 3. Validation: Ensure requested quantity does not exceed store stock
-    const requestedQty = isWeightProduct ? selectedVariantWeight : quantity;
-    if (!isWeightProduct && quantity > storeToUse.quantity) {
-      setStoreValidationError(`Stock insuffisant : seulement ${storeToUse.quantity} unité(s) disponible(s) au magasin "${storeToUse.store_name}".`);
+    // 3. Validation: Ensure requested quantity/weight does not exceed store stock
+    const requestedQty = isWeightProduct ? (Math.max(10, weightInGrams) / 1000) : quantity;
+    if (requestedQty > storeToUse.quantity) {
+      setStoreValidationError(
+        isWeightProduct
+          ? `Stock insuffisant : seulement ${storeToUse.quantity} Kg disponible(s) au magasin "${storeToUse.store_name}".`
+          : `Stock insuffisant : seulement ${storeToUse.quantity} unité(s) disponible(s) au magasin "${storeToUse.store_name}".`
+      );
       return;
     }
 
@@ -841,35 +838,94 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                 </div>
               </div>
 
-              {/* Product Variants (Weight selection if applicable) */}
-              {isWeightProduct ? (
-                <div className="space-y-2 pt-2">
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                    <span>Format / Poids :</span>
-                    <span className="text-[#14532d]">{selectedVariantWeight} KG sélectionné</span>
+              {/* ── TYPE DE VENTE & CONDITIONNEMENT (POIDS OU PIÈCE) ──────── */}
+              <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-100 text-[#14532d] flex items-center justify-center">
+                      {isWeightProduct ? <Scale className="w-4 h-4" /> : <Package className="w-4 h-4" />}
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                        Type de Vente *
+                      </span>
+                      <span className="text-xs font-black text-slate-900">
+                        {isWeightProduct ? 'Vente au Poids (Kg / Gramme)' : 'Vente par Pièce (Unité)'}
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-2.5">
-                    {[2, 7, 12].map((weight) => {
-                      const isSelected = selectedVariantWeight === weight;
-                      return (
-                        <button
-                          key={weight}
-                          type="button"
-                          onClick={() => setSelectedVariantWeight(weight)}
-                          className={`flex-1 py-3 px-3 rounded-2xl text-xs font-black transition-all cursor-pointer border ${
-                            isSelected
-                              ? 'bg-emerald-50 border-[#14532d] text-[#14532d] shadow-sm ring-1 ring-[#14532d]/20'
-                              : 'bg-white border-slate-200 hover:border-slate-300 text-slate-700'
-                          }`}
-                        >
-                          {weight} KG
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <span className="text-xs font-black text-[#14532d] bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                    {isWeightProduct ? `${basePrice.toFixed(2)} DH / 1 Kg` : `${basePrice.toFixed(2)} DH / Unité`}
+                  </span>
                 </div>
-              ) : null}
+
+                {/* If Vente au Poids: display weight in grams input + quick presets + live formula */}
+                {isWeightProduct ? (
+                  <div className="space-y-3 pt-2 border-t border-slate-100">
+                    <div className="flex items-center justify-between">
+                      <label htmlFor="weight-input-grams" className="text-xs font-bold text-slate-700">
+                        Saisir le poids désiré (en grammes) :
+                      </label>
+                      <span className="text-[11px] font-mono text-emerald-800 font-bold">
+                        1 Kg = {basePrice.toFixed(2)} DH • 100g = {pricePer100g} DH
+                      </span>
+                    </div>
+
+                    {/* Numeric Input for Grams */}
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <input
+                          id="weight-input-grams"
+                          type="number"
+                          min="10"
+                          step="10"
+                          value={weightInGrams}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value) || 0;
+                            setWeightInGrams(val);
+                            setStoreValidationError(null);
+                          }}
+                          className="w-full pl-4 pr-16 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#14532d]/20 focus:border-[#14532d]"
+                          placeholder="Ex: 250"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                          grammes
+                        </span>
+                      </div>
+
+                      <div className="px-3 py-2 bg-emerald-50 text-[#14532d] rounded-xl border border-emerald-200 text-xs font-black shrink-0">
+                        = {weightInKg.toFixed(2)} Kg
+                      </div>
+                    </div>
+
+                    {/* Quick Presets Buttons */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[11px] font-bold text-slate-500 mr-1">Raccourcis :</span>
+                      {[100, 250, 500, 1000, 2000, 5000].map((grams) => {
+                        const isSelected = weightInGrams === grams;
+                        return (
+                          <button
+                            key={grams}
+                            type="button"
+                            onClick={() => {
+                              setWeightInGrams(grams);
+                              setStoreValidationError(null);
+                            }}
+                            className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                              isSelected
+                                ? 'bg-[#14532d] text-white border-[#14532d] shadow-xs'
+                                : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
+                            }`}
+                          >
+                            {grams >= 1000 ? `${grams / 1000} Kg` : `${grams}g`}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
 
               {/* ── POINT DE VENTE & DISPONIBILITÉ VALIDATION BLOCK ────────── */}
               <div id="store-selector-section" className="space-y-3 pt-2">
@@ -985,20 +1041,20 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
               {/* ── PRICE SECTION ─────────────────────────────────────────── */}
               <div className="pt-2">
-                <div className="flex items-baseline gap-3">
+                <div className="flex items-baseline gap-3 flex-wrap">
                   <span className="text-3xl sm:text-4xl font-black text-[#14532d] tracking-tight">
                     {totalPrice.toFixed(2)} DH
                   </span>
 
                   {oldPrice > totalPrice && (
                     <span className="text-sm sm:text-base font-semibold text-slate-400 line-through">
-                      {(oldPrice * (isWeightProduct ? selectedVariantWeight / 2 : quantity)).toFixed(2)} DH
+                      {(oldPrice * (isWeightProduct ? weightInKg : quantity)).toFixed(2)} DH
                     </span>
                   )}
 
                   {isWeightProduct && (
                     <span className="text-xs font-semibold text-slate-500 ml-auto">
-                      {pricePerKg} DH / KG
+                      Tarif : {pricePerKg} DH / Kg ({pricePer100g} DH / 100g)
                     </span>
                   )}
                 </div>
@@ -1007,7 +1063,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               {/* ── QUANTITY SELECTOR & ADD TO CART CTA ───────────────────── */}
               <div className="pt-2 flex flex-col sm:flex-row items-stretch gap-3">
                 
-                {/* Quantity Controls */}
+                {/* Quantity Controls (Only for Vente par Pièce) */}
                 {!isWeightProduct && (
                   <div className="flex items-center justify-between bg-white border border-slate-200 rounded-2xl p-1.5 shadow-2xs shrink-0 w-full sm:w-36">
                     <button
@@ -1072,7 +1128,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                       <ShoppingBag className="w-5 h-5" />
                       <span>
                         Ajouter au panier • {totalPrice.toFixed(2)} DH
-                        {selectedStore ? ` (${selectedStore.store_name})` : ''}
+                        {isWeightProduct ? ` (${weightInGrams >= 1000 ? `${(weightInGrams / 1000).toFixed(2)} Kg` : `${weightInGrams}g`})` : ''}
+                        {selectedStore ? ` • ${selectedStore.store_name}` : ''}
                       </span>
                     </>
                   )}

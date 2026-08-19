@@ -16,10 +16,12 @@ export default function ProductCard({ product, onQuickView }: ProductCardProps) 
   const router = useRouter();
   const { isInWishlist, toggleWishlist } = useWishlist();
   const isWishlisted = isInWishlist(product.id);
-  const [selectedWeight, setSelectedWeight] = useState(1); // For weight based products
 
   const isOutOfStock = product.stock_quantity <= 0;
-  const isWeightProduct = product.unit_type === 'kg' || product.unit_type === 'g';
+  const isWeightProduct =
+    product.unit_type === 'WEIGHT' ||
+    product.unit_type === 'kg' ||
+    product.unit_type === 'g';
   const price = parseFloat(String(product.price_sell)) || 0;
   const imageUrl = getMediaUrl(product.image || product.image_url);
 
@@ -104,41 +106,18 @@ export default function ProductCard({ product, onQuickView }: ProductCardProps) 
           </p>
         </div>
 
-        {/* Weight Selector if product is sold per Kg */}
-        {isWeightProduct && !isOutOfStock && (
-          <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
-            <span className="text-[11px] font-bold text-slate-500">Poids :</span>
-            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
-              {[0.5, 1, 2, 5].map((w) => (
-                <button
-                  key={w}
-                  type="button"
-                  onClick={() => setSelectedWeight(w)}
-                  className={`px-2 py-0.5 text-[11px] font-bold rounded-lg transition-all ${
-                    selectedWeight === w
-                      ? 'bg-emerald-800 text-white shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  {w} kg
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Price & Add to Cart Button */}
-        <div className="mt-4 pt-3 border-t border-slate-100/80 flex items-center justify-between">
+        <div className="mt-auto pt-3 border-t border-slate-100/80 flex items-center justify-between">
           <div className="flex flex-col">
             <div className="flex items-baseline gap-1">
               <span className="text-xl font-extrabold text-emerald-950 price-tag">
-                {(price * (isWeightProduct ? selectedWeight : 1)).toFixed(2)}
+                {price.toFixed(2)}
               </span>
               <span className="text-xs font-bold text-emerald-800">DH</span>
             </div>
             {isWeightProduct ? (
-              <span className="text-[10px] text-slate-400 font-semibold">
-                ({price.toFixed(2)} DH/Kg)
+              <span className="text-[10px] text-emerald-800 font-bold">
+                Prix au Kg
               </span>
             ) : (
               <span className="text-[10px] text-slate-400">Prix unitaire</span>
@@ -149,14 +128,14 @@ export default function ProductCard({ product, onQuickView }: ProductCardProps) 
             type="button"
             onClick={handleAddToCart}
             disabled={isOutOfStock}
-            className={`flex items-center gap-1.5 px-4 py-2.5 rounded-2xl font-bold text-xs transition-all duration-200 shadow-sm ${
+            className={`flex items-center gap-1.5 px-4 py-2.5 rounded-2xl font-bold text-xs transition-all duration-200 shadow-sm cursor-pointer ${
               isOutOfStock
                 ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
                 : 'bg-emerald-800 hover:bg-emerald-700 active:scale-95 text-white shadow-emerald-900/10'
             }`}
           >
             <ShoppingBag className="w-4 h-4" />
-            <span>{isWeightProduct ? `Ajouter (${selectedWeight}kg)` : 'Ajouter'}</span>
+            <span>Ajouter</span>
           </button>
         </div>
       </div>

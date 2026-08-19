@@ -12,7 +12,8 @@ import {
   MapPin, 
   Building2, 
   ShieldCheck,
-  Sparkles
+  Sparkles,
+  Scale
 } from 'lucide-react';
 
 interface ProductModalProps {
@@ -30,7 +31,7 @@ export default function ProductModal({ product, isOpen, onClose }: ProductModalP
   const { addItem } = useCart();
   const [selectedStore, setSelectedStore] = useState<StoreStock | null>(null);
   const [quantity, setQuantity] = useState(1);
-  const [selectedWeight, setSelectedWeight] = useState(1);
+  const [weightGrams, setWeightGrams] = useState(1000);
   const [isAdded, setIsAdded] = useState(false);
 
   // Compute available stores stock with safe fallbacks
@@ -55,16 +56,18 @@ export default function ProductModal({ product, isOpen, onClose }: ProductModalP
       setSelectedStore(null);
     }
     setQuantity(1);
-    setSelectedWeight(1);
+    setWeightGrams(1000);
     setIsAdded(false);
   }, [product, storesStock]);
 
   if (!isOpen || !product) return null;
 
-  const isWeightProduct = product.unit_type === 'kg' || product.unit_type === 'g';
+  const isWeightProduct = product.unit_type === 'WEIGHT' || product.unit_type === 'kg' || product.unit_type === 'g';
   const unitPrice = parseFloat(String(product.price_sell)) || 0;
-  const effectivePrice = unitPrice * (isWeightProduct ? selectedWeight : 1);
-  const totalPrice = effectivePrice * (isWeightProduct ? 1 : quantity);
+  const currentWeightGrams = Math.max(10, weightGrams || 1000);
+  const weightInKg = currentWeightGrams / 1000;
+  const effectivePrice = isWeightProduct ? (unitPrice * currentWeightGrams) / 1000 : unitPrice;
+  const totalPrice = isWeightProduct ? effectivePrice : effectivePrice * quantity;
   const imageUrl = getMediaUrl(product.image || product.image_url);
   const maxAvailableStock = selectedStore ? selectedStore.quantity : (product.stock_quantity ?? 0);
   const isStoreOutOfStock = !selectedStore || selectedStore.quantity <= 0;
@@ -79,7 +82,7 @@ export default function ProductModal({ product, isOpen, onClose }: ProductModalP
 
     addItem(
       productPayload,
-      isWeightProduct ? selectedWeight : quantity,
+      isWeightProduct ? weightInKg : quantity,
       { store_id: selectedStore.store_id, store_name: selectedStore.store_name }
     );
     setIsAdded(true);
@@ -161,16 +164,16 @@ export default function ProductModal({ product, isOpen, onClose }: ProductModalP
                 )}
 
                 {/* Price Display */}
-                <div className="mt-3 flex items-baseline gap-1.5">
+                <div className="mt-3 flex items-baseline gap-1.5 flex-wrap">
                   <span className="text-2xl font-black text-emerald-950 price-tag">
                     {effectivePrice.toFixed(2)}
                   </span>
                   <span className="text-xs font-bold text-emerald-800">
-                    DH {isWeightProduct ? `/ ${selectedWeight}kg` : ''}
+                    DH {isWeightProduct ? `(${currentWeightGrams >= 1000 ? `${(currentWeightGrams / 1000).toFixed(2)} Kg` : `${currentWeightGrams}g`})` : ''}
                   </span>
-                  {isWeightProduct && selectedWeight !== 1 && (
+                  {isWeightProduct && (
                     <span className="text-[11px] text-slate-400 ml-1">
-                      ({unitPrice.toFixed(2)} DH/kg)
+                      (Tarif : {unitPrice.toFixed(2)} DH/Kg • {(unitPrice / 10).toFixed(2)} DH/100g)
                     </span>
                   )}
                 </div>
@@ -179,21 +182,50 @@ export default function ProductModal({ product, isOpen, onClose }: ProductModalP
 
             {/* Weight selector if sold per Kg */}
             {isWeightProduct && (
-              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-700">Sélectionner le conditionnement / poids :</span>
-                <div className="flex items-center gap-1.5 bg-slate-50 p-1 rounded-2xl border border-slate-200">
-                  {[0.5, 1, 2, 5, 10].map((w) => (
+              <div className="mt-4 pt-3 border-t border-slate-100 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                    <Scale className="w-3.5 h-3.5 text-emerald-800" />
+                    <span>Poids pesé (en grammes) :</span>
+                  </span>
+                  <span className="text-[11px] font-mono text-emerald-800 font-bold">
+                    1 Kg = {unitPrice.toFixed(2)} DH
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="number"
+                      min="10"
+                      step="10"
+                      value={weightGrams}
+                      onChange={(e) => setWeightGrams(parseFloat(e.target.value) || 0)}
+                      className="w-full pl-3 pr-14 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-700/20"
+                      placeholder="Ex: 250"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                      grammes
+                    </span>
+                  </div>
+                  <div className="px-3 py-2 bg-emerald-50 text-[#14532d] rounded-xl border border-emerald-200 text-xs font-black shrink-0">
+                    = {weightInKg.toFixed(2)} Kg
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {[100, 250, 500, 1000, 2000, 5000].map((w) => (
                     <button
                       key={w}
                       type="button"
-                      onClick={() => setSelectedWeight(w)}
-                      className={`px-3 py-1 text-xs font-bold rounded-xl transition-all ${
-                        selectedWeight === w
-                          ? 'bg-emerald-800 text-white shadow-xs'
-                          : 'text-slate-600 hover:text-slate-900'
+                      onClick={() => setWeightGrams(w)}
+                      className={`px-2.5 py-1 text-xs font-bold rounded-xl transition-all cursor-pointer border ${
+                        weightGrams === w
+                          ? 'bg-emerald-800 text-white border-emerald-800 shadow-xs'
+                          : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
                       }`}
                     >
-                      {w} kg
+                      {w >= 1000 ? `${w / 1000} Kg` : `${w}g`}
                     </button>
                   ))}
                 </div>

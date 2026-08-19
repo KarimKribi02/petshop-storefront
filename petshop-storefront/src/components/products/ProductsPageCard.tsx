@@ -86,7 +86,6 @@ export default function ProductsPageCard({ product, viewMode = 'grid', onQuickVi
   const router = useRouter();
   const { isInWishlist, toggleWishlist } = useWishlist();
   const isWishlisted = isInWishlist(product.id);
-  const [selectedWeight, setSelectedWeight] = useState(1);
   const [isHovered, setIsHovered] = useState(false);
   const [stats, setStats] = useState<{ stars: number; count: number }>({ stars: 4.8, count: 4 });
 
@@ -95,12 +94,15 @@ export default function ProductsPageCard({ product, viewMode = 'grid', onQuickVi
   }, [product.id]);
 
   const isOutOfStock = product.stock_quantity <= 0;
-  const isWeightProduct = product.unit_type === 'kg' || product.unit_type === 'g';
+  const isWeightProduct =
+    product.unit_type === 'WEIGHT' ||
+    product.unit_type === 'kg' ||
+    product.unit_type === 'g';
   const price = parseFloat(String(product.price_sell)) || 0;
   const imageUrl = getMediaUrl(product.image || product.image_url);
   const badge = getBadge(product);
   const { stars, count } = stats;
-  const displayPrice = isWeightProduct ? price * selectedWeight : price;
+  const displayPrice = price;
 
   /** Open ProductModal — handles store selection + addItem */
   const handleAddToCart = (e: React.MouseEvent) => {
@@ -383,28 +385,6 @@ export default function ProductsPageCard({ product, viewMode = 'grid', onQuickVi
           <span style={{ fontSize: '11px', color: '#a8a29e', fontWeight: 500 }}>({count})</span>
         </div>
 
-        {/* Weight selector */}
-        {isWeightProduct && !isOutOfStock && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '10px' }}
-            onClick={(e) => e.stopPropagation()}>
-            {[0.5, 1, 2, 5].map((w) => (
-              <button
-                key={w}
-                onClick={() => setSelectedWeight(w)}
-                style={{
-                  padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
-                  border: selectedWeight === w ? '1.5px solid #1a4731' : '1.5px solid #e5e7eb',
-                  background: selectedWeight === w ? '#1a4731' : '#fff',
-                  color: selectedWeight === w ? '#fff' : '#78716c',
-                  cursor: 'pointer', transition: 'all 0.15s ease',
-                }}
-              >
-                {w}kg
-              </button>
-            ))}
-          </div>
-        )}
-
         {/* Price + Add to cart */}
         <div style={{ marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid #f5f0eb',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
@@ -415,8 +395,10 @@ export default function ProductsPageCard({ product, viewMode = 'grid', onQuickVi
               </span>
               <span style={{ fontSize: '12px', fontWeight: 700, color: '#1a4731' }}>DH</span>
             </div>
-            {isWeightProduct && (
-              <span style={{ fontSize: '10px', color: '#a8a29e' }}>{price.toFixed(2)} DH/kg</span>
+            {isWeightProduct ? (
+              <span style={{ fontSize: '11px', color: '#1a4731', fontWeight: 700 }}>Prix au Kg</span>
+            ) : (
+              <span style={{ fontSize: '10px', color: '#a8a29e' }}>Prix unitaire</span>
             )}
           </div>
 
